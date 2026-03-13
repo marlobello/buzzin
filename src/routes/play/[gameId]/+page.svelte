@@ -123,6 +123,10 @@
 			</div>
 		</div>
 
+		<div style="width:100%; max-width:480px; display:flex; justify-content:flex-end;">
+			<a href="/" class="btn btn-secondary" style="width:auto; padding:6px 14px; font-size:0.8rem; text-decoration:none;">← Leave Game</a>
+		</div>
+
 		<!-- Buzzer area -->
 		<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
 
