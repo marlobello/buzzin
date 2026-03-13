@@ -1,59 +1,68 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { gameStore } from '$lib/stores/game';
 	import { connectToGame, disconnect } from '$lib/signalr';
 
-	const gameId = $derived($page.params.gameId);
+	const gameId = $derived(page.params.gameId);
 	let participantId = $state('');
 	let loading = $state(true);
 	let error = $state('');
 	let buzzing = $state(false);
 
 	let myParticipant = $derived(
-		$gameStore?.participants.find((p) => p.participantId === participantId) ?? null
+		gameStore.current?.participants.find((p) => p.participantId === participantId) ?? null
 	);
 
 	let canBuzz = $derived(
-		$gameStore?.status === 'active' && myParticipant != null && !myParticipant.buzzedIn
+		gameStore.current?.status === 'active' && myParticipant != null && !myParticipant.buzzedIn
 	);
 
 	$effect(() => {
-		if ($gameStore?.status === 'ended') {
+		if (gameStore.current?.status === 'ended') {
 			goto('/');
 		}
 	});
 
-	onMount(async () => {
-		participantId = localStorage.getItem(`participant-${gameId}`) ?? '';
-		if (!participantId) {
-			await goto('/');
-			return;
-		}
+	$effect(() => {
+		const id = gameId;
+		if (!id) return;
+		let active = true;
 
-		try {
-			const res = await fetch(`/api/games/${gameId}`);
-			if (!res.ok) throw new Error('Game not found');
-			const data = await res.json();
-			gameStore.set(data);
-		} catch {
-			error = 'Could not load game. It may have expired.';
+		(async () => {
+			participantId = localStorage.getItem(`participant-${id}`) ?? '';
+			if (!participantId) {
+				await goto('/');
+				return;
+			}
+
+			try {
+				const res = await fetch(`/api/games/${id}`);
+				if (!res.ok) throw new Error('Game not found');
+				const data = await res.json();
+				if (!active) return;
+				gameStore.set(data);
+			} catch {
+				if (!active) return;
+				error = 'Could not load game. It may have expired.';
+				loading = false;
+				return;
+			}
+
+			if (!active) return;
 			loading = false;
-			return;
-		}
 
-		loading = false;
+			connectToGame(id, participantId, (target, args) => {
+				gameStore.handleMessage(target, args);
+			}).catch((e) => {
+				console.warn('SignalR connection failed:', e);
+			});
+		})();
 
-		connectToGame(gameId, participantId, (target, args) => {
-			gameStore.handleMessage(target, args);
-		}).catch((e) => {
-			console.warn('SignalR connection failed:', e);
-		});
-	});
-
-	onDestroy(() => {
-		disconnect();
+		return () => {
+			active = false;
+			disconnect();
+		};
 	});
 
 	async function buzz() {
@@ -74,7 +83,7 @@
 </script>
 
 <svelte:head>
-	<title>{$gameStore?.gameName ?? 'buzzin'}</title>
+	<title>{gameStore.current?.gameName ?? 'buzzin'}</title>
 </svelte:head>
 
 <main class="page" style="justify-content:space-between;">
@@ -89,8 +98,8 @@
 			<a href="/" class="btn btn-secondary" style="margin-top:12px; text-decoration:none;">← Home</a>
 		</div>
 
-	{:else if $gameStore}
-		{@const game = $gameStore}
+	{:else if gameStore.current}
+		{@const game = gameStore.current}
 
 		<!-- Top bar -->
 		<div style="

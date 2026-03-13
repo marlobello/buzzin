@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { onMount, onDestroy } from 'svelte';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { gameStore, buzzOrder } from '$lib/stores/game';
+	import { gameStore } from '$lib/stores/game';
 	import { connectToGame, disconnect } from '$lib/signalr';
 	import { playBuzzSound, playCoinSound, playRemoveSound } from '$lib/sounds';
 
-	const gameId = $derived($page.params.gameId);
+	const gameId = $derived(page.params.gameId);
 	let moderatorId = $state('');
 	let loading = $state(true);
 	let error = $state('');
@@ -14,46 +13,53 @@
 	let actionLoading = $state<string | null>(null);
 	let awardedThisRound = $state(new Set<string>());
 
+	let lastBuzzCount = 0;
 	$effect(() => {
-		const count = $buzzOrder.length;
+		const count = gameStore.buzzOrder.length;
 		if (count === 1 && lastBuzzCount === 0) playBuzzSound();
 		lastBuzzCount = count;
 	});
 
-	// Plain var (not $state) so mutations don't re-trigger the effect
-	let lastBuzzCount = 0;
+	$effect(() => {
+		const id = gameId;
+		if (!id) return;
+		let active = true;
 
-	onMount(async () => {
-		moderatorId = localStorage.getItem(`mod-${gameId}`) ?? '';
-		if (!moderatorId) {
-			await goto('/');
-			return;
-		}
+		(async () => {
+			moderatorId = localStorage.getItem(`mod-${id}`) ?? '';
+			if (!moderatorId) {
+				await goto('/');
+				return;
+			}
 
-		try {
-			const res = await fetch(`/api/games/${gameId}`);
-			if (!res.ok) throw new Error('Game not found');
-			const data = await res.json();
-			gameStore.set(data);
-		} catch {
-			error = 'Could not load game. It may have expired.';
+			try {
+				const res = await fetch(`/api/games/${id}`);
+				if (!res.ok) throw new Error('Game not found');
+				const data = await res.json();
+				if (!active) return;
+				gameStore.set(data);
+			} catch {
+				if (!active) return;
+				error = 'Could not load game. It may have expired.';
+				loading = false;
+				return;
+			}
+
+			if (!active) return;
 			loading = false;
-			return;
-		}
 
-		loading = false;
+			connectToGame(id, moderatorId, (target, args) => {
+				gameStore.handleMessage(target, args);
+			}).catch((e) => {
+				console.warn('SignalR connection failed:', e);
+				error = 'Live updates unavailable — refresh to see changes.';
+			});
+		})();
 
-		// SignalR is best-effort — game is still usable without real-time
-		connectToGame(gameId, moderatorId, (target, args) => {
-			gameStore.handleMessage(target, args);
-		}).catch((e) => {
-			console.warn('SignalR connection failed:', e);
-			error = 'Live updates unavailable — refresh to see changes.';
-		});
-	});
-
-	onDestroy(() => {
-		disconnect();
+		return () => {
+			active = false;
+			disconnect();
+		};
 	});
 
 	async function post(path: string, body?: Record<string, unknown>) {
@@ -127,14 +133,14 @@
 	}
 
 	function copyJoinCode() {
-		if ($gameStore) navigator.clipboard.writeText($gameStore.joinCode).catch(() => {});
+		if (gameStore.current) navigator.clipboard.writeText(gameStore.current.joinCode).catch(() => {});
 		copied = true;
 		setTimeout(() => (copied = false), 2000);
 	}
 
 	const sortedByScore = $derived(
-		$gameStore
-			? [...$gameStore.participants].sort((a, b) => b.score - a.score)
+		gameStore.current
+			? [...gameStore.current.participants].sort((a, b) => b.score - a.score)
 			: []
 	);
 
@@ -144,7 +150,7 @@
 </script>
 
 <svelte:head>
-	<title>Moderator – {$gameStore?.gameName ?? 'buzzin'}</title>
+	<title>Moderator – {gameStore.current?.gameName ?? 'buzzin'}</title>
 </svelte:head>
 
 <main class="page" style="padding-top: max(env(safe-area-inset-top), 16px);">
@@ -153,15 +159,15 @@
 			<p class="text-muted">Loading…</p>
 		</div>
 
-	{:else if error && !$gameStore}
+	{:else if error && !gameStore.current}
 		<div class="card animate-in" style="margin-top: 40px;">
 			<p style="color: var(--danger); text-align:center;">{error}</p>
 			<a href="/" class="btn btn-secondary" style="margin-top:12px; text-decoration:none;">← Home</a>
 		</div>
 
-	{:else if $gameStore}
-		{@const game = $gameStore}
-		{@const buzzes = $buzzOrder}
+	{:else if gameStore.current}
+		{@const game = gameStore.current}
+		{@const buzzes = gameStore.buzzOrder}
 
 		<div style="width:100%; max-width:480px; display:flex; flex-direction:column; gap:16px;">
 

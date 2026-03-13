@@ -45,8 +45,8 @@
 			if (!res.ok) throw new Error(data.error || 'Failed to join game');
 			localStorage.setItem(`participant-${data.gameId}`, data.participantId);
 			await goto(`/play/${data.gameId}`);
-		} catch (e: any) {
-			error = e.message || 'Could not join game. Check the game name and code.';
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not join game. Check the game name and code.';
 		} finally {
 			loading = false;
 		}

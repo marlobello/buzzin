@@ -1,4 +1,5 @@
-import { TableClient } from '@azure/data-tables';
+import { TableClient, odata } from '@azure/data-tables';
+import type { TableEntityResult } from '@azure/data-tables';
 
 const CONN = () => process.env.AZURE_STORAGE_CONNECTION_STRING!;
 
@@ -31,12 +32,16 @@ function lookupClient() {
 	return TableClient.fromConnectionString(CONN(), 'GameLookup');
 }
 
+let tablesEnsured = false;
+
 export async function ensureTables() {
+	if (tablesEnsured) return;
 	await Promise.all([
 		gameClient().createTable().catch(() => {}),
 		lookupClient().createTable().catch(() => {}),
 		TableClient.fromConnectionString(CONN(), 'Participants').createTable().catch(() => {})
 	]);
+	tablesEnsured = true;
 }
 
 export async function createGame(game: GameEntity) {
@@ -108,7 +113,7 @@ export async function getParticipants(gameId: string): Promise<ParticipantEntity
 	const results: ParticipantEntity[] = [];
 	const client = participantClient();
 	for await (const entity of client.listEntities({
-		queryOptions: { filter: `PartitionKey eq '${gameId}'` }
+		queryOptions: { filter: odata`PartitionKey eq ${gameId}` }
 	})) {
 		results.push(entityToParticipant(entity));
 	}
@@ -204,24 +209,24 @@ export async function getAllGames(): Promise<GameEntity[]> {
 
 // ── Entity mappers ───────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function entityToGame(e: any): GameEntity {
+type AzureEntity = TableEntityResult<Record<string, unknown>>;
+
+function entityToGame(e: AzureEntity): GameEntity {
 	return {
-		gameId: e.rowKey,
-		gameName: e.gameName,
-		joinCode: e.joinCode,
-		status: e.status,
-		moderatorId: e.moderatorId,
-		createdAt: e.createdAt
+		gameId: e.rowKey as string,
+		gameName: e.gameName as string,
+		joinCode: e.joinCode as string,
+		status: e.status as GameEntity['status'],
+		moderatorId: e.moderatorId as string,
+		createdAt: e.createdAt as string
 	};
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function entityToParticipant(e: any): ParticipantEntity {
+function entityToParticipant(e: AzureEntity): ParticipantEntity {
 	return {
-		participantId: e.rowKey,
-		gameId: e.partitionKey,
-		name: e.name,
+		participantId: e.rowKey as string,
+		gameId: e.partitionKey as string,
+		name: e.name as string,
 		score: Number(e.score ?? 0),
 		buzzedIn: Boolean(e.buzzedIn),
 		buzzOrder: Number(e.buzzOrder ?? 0),

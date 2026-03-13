@@ -9,8 +9,17 @@ function generateGameId(): string {
 function generateJoinCode(): string {
 	// Exclude visually ambiguous characters (I, O)
 	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-	const bytes = randomBytes(6);
-	return Array.from(bytes, (b) => chars[b % chars.length]).join('');
+	const len = chars.length; // 24
+	const limit = Math.floor(256 / len) * len; // 240 — reject bytes >= this to remove modulo bias
+	const result: string[] = [];
+	while (result.length < 6) {
+		const bytes = randomBytes(6);
+		for (const b of bytes) {
+			if (b < limit) result.push(chars[b % len]);
+			if (result.length === 6) break;
+		}
+	}
+	return result.join('');
 }
 
 app.http('gamesCreate', {

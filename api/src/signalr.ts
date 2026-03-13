@@ -44,7 +44,7 @@ export function getClientAccessUrl(
 ): { url: string; accessToken: string } {
 	const { endpoint, accessKey } = getConn();
 	const url = `${endpoint}/client/?hub=${HUB}`;
-	const accessToken = jwt(url, accessKey, { nameid: userId });
+	const accessToken = jwt(url, accessKey, { nameid: userId, groups: [`game-${gameId}`] });
 	return { url, accessToken };
 }
 
@@ -54,7 +54,7 @@ export async function broadcastToGame(
 	args: unknown[]
 ): Promise<void> {
 	const { endpoint, accessKey } = getConn();
-	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}`;
+	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}/groups/game-${gameId}`;
 	const token = jwt(apiUrl, accessKey);
 
 	const res = await fetch(apiUrl, {
