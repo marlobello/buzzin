@@ -156,8 +156,9 @@
 							text-align:center;
 							min-width:80px;
 						">
-							<div style="font-size:0.85rem; line-height:1;">{medal ?? `${i+1}th`}</div>
-							<div style="font-size:0.7rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70px;">{p.name}</div>
+							<div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70px;">
+								{medal ?? `${i+1}th`}&nbsp;{p.name}
+							</div>
 							<div style="font-weight:700; font-size:1.1rem; color:{p.score > 0 ? 'var(--success)' : 'var(--text-muted)'};">{p.score}</div>
 						</div>
 					{/each}

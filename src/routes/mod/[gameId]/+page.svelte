@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { gameStore, buzzOrder } from '$lib/stores/game';
 	import { connectToGame, disconnect } from '$lib/signalr';
-	import { playBuzzSound } from '$lib/sounds';
+	import { playBuzzSound, playCoinSound, playRemoveSound } from '$lib/sounds';
 
 	const gameId = $derived($page.params.gameId);
 	let moderatorId = $state('');
@@ -15,8 +15,13 @@
 	let awardedThisRound = $state(new Set<string>());
 
 	$effect(() => {
-		if ($buzzOrder.length === 1) playBuzzSound();
+		const count = $buzzOrder.length;
+		if (count === 1 && lastBuzzCount === 0) playBuzzSound();
+		lastBuzzCount = count;
 	});
+
+	// Plain var (not $state) so mutations don't re-trigger the effect
+	let lastBuzzCount = 0;
 
 	onMount(async () => {
 		moderatorId = localStorage.getItem(`mod-${gameId}`) ?? '';
@@ -96,8 +101,10 @@
 			if (removing) {
 				awardedThisRound.delete(participantId);
 				awardedThisRound = new Set(awardedThisRound);
+				playRemoveSound();
 			} else {
 				awardedThisRound = new Set([...awardedThisRound, participantId]);
+				playCoinSound();
 			}
 		} catch {
 			error = 'Failed to update point.';
