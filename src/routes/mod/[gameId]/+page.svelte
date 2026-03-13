@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { gameStore, buzzOrder } from '$lib/stores/game';
 	import { connectToGame, disconnect } from '$lib/signalr';
+	import { playBuzzSound } from '$lib/sounds';
 
 	const gameId = $derived($page.params.gameId);
 	let moderatorId = $state('');
@@ -12,6 +13,10 @@
 	let copied = $state(false);
 	let actionLoading = $state<string | null>(null);
 	let awardedThisRound = $state(new Set<string>());
+
+	$effect(() => {
+		if ($buzzOrder.length === 1) playBuzzSound();
+	});
 
 	onMount(async () => {
 		moderatorId = localStorage.getItem(`mod-${gameId}`) ?? '';
