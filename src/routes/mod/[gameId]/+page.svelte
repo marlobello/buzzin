@@ -11,6 +11,7 @@
 	let error = $state('');
 	let copied = $state(false);
 	let actionLoading = $state<string | null>(null);
+	let awardedThisRound = $state(new Set<string>());
 
 	onMount(async () => {
 		moderatorId = localStorage.getItem(`mod-${gameId}`) ?? '';
@@ -62,6 +63,7 @@
 		actionLoading = 'start';
 		try {
 			await post(`/api/games/${gameId}/start`);
+			awardedThisRound = new Set();
 		} catch {
 			error = 'Failed to start game.';
 		} finally {
@@ -73,6 +75,7 @@
 		actionLoading = 'reset';
 		try {
 			await post(`/api/games/${gameId}/reset`);
+			awardedThisRound = new Set();
 		} catch {
 			error = 'Failed to reset buzzers.';
 		} finally {
@@ -81,11 +84,18 @@
 	}
 
 	async function awardPoint(participantId: string) {
+		const removing = awardedThisRound.has(participantId);
 		actionLoading = `point-${participantId}`;
 		try {
-			await post(`/api/games/${gameId}/point`, { participantId });
+			await post(`/api/games/${gameId}/point`, { participantId, remove: removing });
+			if (removing) {
+				awardedThisRound.delete(participantId);
+				awardedThisRound = new Set(awardedThisRound);
+			} else {
+				awardedThisRound = new Set([...awardedThisRound, participantId]);
+			}
 		} catch {
-			error = 'Failed to award point.';
+			error = 'Failed to update point.';
 		} finally {
 			actionLoading = null;
 		}
@@ -193,12 +203,12 @@
 								<span class="score-name">{participant.name}</span>
 								<span class="score-pts">{participant.score} pts</span>
 								<button
-									class="btn btn-success btn-sm"
+									class="btn {awardedThisRound.has(participant.participantId) ? 'btn-danger' : 'btn-success'} btn-sm"
 									style="width:auto; padding: 6px 12px; font-size:0.8rem;"
 									onclick={() => awardPoint(participant.participantId)}
 									disabled={actionLoading === `point-${participant.participantId}`}
 								>
-									{actionLoading === `point-${participant.participantId}` ? '…' : '✓ Point'}
+									{actionLoading === `point-${participant.participantId}` ? '…' : awardedThisRound.has(participant.participantId) ? '✕ Remove' : '✓ Point'}
 								</button>
 							</div>
 						{/each}
@@ -221,14 +231,14 @@
 								<span style="font-weight:700; color: {p.score > 0 ? 'var(--success)' : 'var(--text-muted)'}">
 									{p.score} {p.score === 1 ? 'pt' : 'pts'}
 								</span>
-								{#if !p.buzzedIn && game.status === 'active'}
+								{#if game.status === 'active'}
 									<button
-										class="btn btn-success btn-sm"
+										class="btn {awardedThisRound.has(p.participantId) ? 'btn-danger' : 'btn-success'} btn-sm"
 										style="width:auto; padding: 6px 12px; font-size:0.8rem;"
 										onclick={() => awardPoint(p.participantId)}
 										disabled={actionLoading === `point-${p.participantId}`}
 									>
-										{actionLoading === `point-${p.participantId}` ? '…' : '✓'}
+										{actionLoading === `point-${p.participantId}` ? '…' : awardedThisRound.has(p.participantId) ? '✕' : '✓'}
 									</button>
 								{/if}
 							</div>

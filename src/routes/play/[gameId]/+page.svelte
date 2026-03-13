@@ -19,16 +19,6 @@
 		$gameStore?.status === 'active' && myParticipant != null && !myParticipant.buzzedIn
 	);
 
-	let statusText = $derived(() => {
-		if (!$gameStore) return '';
-		if ($gameStore.status === 'waiting') return 'Waiting for moderator to start…';
-		if (!myParticipant) return '';
-		if (myParticipant.buzzedIn) {
-			return myParticipant.buzzOrder === 1 ? '⚡ You buzzed first!' : `You buzzed in #${myParticipant.buzzOrder}`;
-		}
-		return 'Ready — hit the buzzer!';
-	});
-
 	onMount(async () => {
 		participantId = localStorage.getItem(`participant-${gameId}`) ?? '';
 		if (!participantId) {
@@ -113,15 +103,20 @@
 		<!-- Buzzer area -->
 		<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
 
-			<!-- Status text -->
-			<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
-				{statusText()}
-			</p>
+			<!-- Status text: only shown when waiting or ready, not when buzzed -->
+			{#if game.status === 'waiting' || !myParticipant?.buzzedIn}
+				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
+					{game.status === 'waiting' ? 'Waiting for moderator to start…' : 'Ready — hit the buzzer!'}
+				</p>
+			{:else}
+				<p style="min-height:1.5em;"></p>
+			{/if}
 
 			<!-- THE BUZZER -->
 			<button
 				class="buzzer"
-				class:buzzed={myParticipant?.buzzedIn}
+				class:buzzed={myParticipant?.buzzedIn && myParticipant.buzzOrder !== 1}
+				class:buzzed-first={myParticipant?.buzzedIn && myParticipant.buzzOrder === 1}
 				class:waiting={game.status === 'waiting'}
 				onclick={buzz}
 				disabled={!canBuzz || buzzing}
@@ -131,7 +126,7 @@
 					{#if game.status === 'waiting'}
 						⏳
 					{:else if myParticipant?.buzzedIn}
-						{myParticipant.buzzOrder === 1 ? '⚡' : '✓'}
+						#{myParticipant.buzzOrder}
 					{:else}
 						🔔
 					{/if}
@@ -196,6 +191,14 @@
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 		animation: none;
 		cursor: not-allowed;
+	}
+
+	.buzzer.buzzed-first {
+		background: radial-gradient(circle at 38% 38%, #4ade80, #16a34a 55%, #14532d);
+		box-shadow:
+			0 0 0 10px rgba(22, 163, 74, 0.15),
+			0 24px 48px rgba(22, 163, 74, 0.4);
+		animation: none;
 	}
 
 	.buzzer.buzzed {

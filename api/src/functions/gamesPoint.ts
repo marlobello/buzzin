@@ -11,6 +11,7 @@ app.http('gamesPoint', {
 		const body = (await request.json().catch(() => null)) as {
 			participantId?: string;
 			moderatorId?: string;
+			remove?: boolean;
 		} | null;
 
 		if (!body?.participantId) {
@@ -28,7 +29,7 @@ app.http('gamesPoint', {
 		}
 		if (!participant) return { status: 404, jsonBody: { error: 'Participant not found' } };
 
-		const newScore = participant.score + 1;
+		const newScore = Math.max(0, participant.score + (body.remove ? -1 : 1));
 		await updateParticipant(gameId, body.participantId, { score: newScore });
 
 		// Broadcast updated scores for all participants
