@@ -192,7 +192,7 @@
 			0 12px 24px rgba(124, 58, 237, 0.3);
 	}
 
-	.buzzer:disabled:not(.buzzed) {
+	.buzzer:disabled:not(.buzzed):not(.buzzed-first) {
 		background: radial-gradient(circle at 38% 38%, #4b5563, #374151);
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 		animation: none;

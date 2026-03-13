@@ -244,16 +244,6 @@
 								<span style="font-weight:700; color: {p.score > 0 ? 'var(--success)' : 'var(--text-muted)'}">
 									{p.score} {p.score === 1 ? 'pt' : 'pts'}
 								</span>
-								{#if game.status === 'active'}
-									<button
-										class="btn {awardedThisRound.has(p.participantId) ? 'btn-danger' : 'btn-success'} btn-sm"
-										style="width:auto; padding: 6px 12px; font-size:0.8rem;"
-										onclick={() => awardPoint(p.participantId)}
-										disabled={actionLoading === `point-${p.participantId}`}
-									>
-										{actionLoading === `point-${p.participantId}` ? '…' : awardedThisRound.has(p.participantId) ? '✕' : '✓'}
-									</button>
-								{/if}
 							</div>
 						{/each}
 					</div>
