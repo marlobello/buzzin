@@ -54,7 +54,10 @@ export async function broadcastToGame(
 	args: unknown[]
 ): Promise<void> {
 	const { endpoint, accessKey } = getConn();
-	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}/groups/game-${gameId}`;
+	// Broadcast to all connected clients; handleMessage() filters by gameId client-side.
+	// Group-scoped broadcasts require explicit REST API group enrollment after connection,
+	// which is not supported before the WebSocket handshake completes.
+	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}`;
 	const token = jwt(apiUrl, accessKey);
 
 	const res = await fetch(apiUrl, {
