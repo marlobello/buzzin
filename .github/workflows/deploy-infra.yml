@@ -1,0 +1,49 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/deploy-infra.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-infra:
+    name: Deploy Bicep Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure resource group exists
+        run: |
+          az group create \
+            --name rg-buzzin \
+            --location eastus2 \
+            --output none
+
+      - name: Deploy Bicep
+        run: |
+          OUTPUT=$(az deployment group create \
+            --resource-group rg-buzzin \
+            --template-file infra/main.bicep \
+            --parameters \
+              environment=prod \
+              location=eastus2 \
+              repoOwner=${{ github.repository_owner }} \
+              repoName=buzzin \
+            --query "properties.outputs" \
+            --output json)
+
+          HOSTNAME=$(echo "$OUTPUT" | jq -r '.swaHostname.value')
+          echo "Deployed to: https://$HOSTNAME"
