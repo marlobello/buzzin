@@ -23,76 +23,56 @@ function createGameStore() {
 		subscribe,
 		set,
 		handleMessage(target: string, args: unknown[]) {
-			switch (target) {
-				case 'participant-joined': {
-					const p = args[0] as Participant;
-					update((s) => (s ? { ...s, participants: [...s.participants, p] } : null));
-					break;
+			// Every broadcast prepends gameId as args[0] so we can filter
+			const [msgGameId, ...payload] = args as [string, ...unknown[]];
+
+			update((s) => {
+				if (!s || s.gameId !== msgGameId) return s;
+
+				switch (target) {
+					case 'participant-joined': {
+						const p = payload[0] as Participant;
+						return { ...s, participants: [...s.participants, p] };
+					}
+					case 'game-started': {
+						return {
+							...s,
+							status: 'active',
+							participants: s.participants.map((p) => ({ ...p, buzzedIn: false, buzzOrder: 0 }))
+						};
+					}
+					case 'buzzed-in': {
+						const { participantId, buzzOrder } = payload[0] as {
+							participantId: string;
+							buzzOrder: number;
+						};
+						return {
+							...s,
+							participants: s.participants.map((p) =>
+								p.participantId === participantId ? { ...p, buzzedIn: true, buzzOrder } : p
+							)
+						};
+					}
+					case 'buzzers-reset': {
+						return {
+							...s,
+							participants: s.participants.map((p) => ({ ...p, buzzedIn: false, buzzOrder: 0 }))
+						};
+					}
+					case 'scores-updated': {
+						const scores = payload[0] as Array<{ participantId: string; score: number }>;
+						return {
+							...s,
+							participants: s.participants.map((p) => {
+								const found = scores.find((sc) => sc.participantId === p.participantId);
+								return found ? { ...p, score: found.score } : p;
+							})
+						};
+					}
+					default:
+						return s;
 				}
-				case 'game-started': {
-					update((s) =>
-						s
-							? {
-									...s,
-									status: 'active',
-									participants: s.participants.map((p) => ({
-										...p,
-										buzzedIn: false,
-										buzzOrder: 0
-									}))
-								}
-							: null
-					);
-					break;
-				}
-				case 'buzzed-in': {
-					const { participantId, buzzOrder } = args[0] as {
-						participantId: string;
-						buzzOrder: number;
-					};
-					update((s) =>
-						s
-							? {
-									...s,
-									participants: s.participants.map((p) =>
-										p.participantId === participantId ? { ...p, buzzedIn: true, buzzOrder } : p
-									)
-								}
-							: null
-					);
-					break;
-				}
-				case 'buzzers-reset': {
-					update((s) =>
-						s
-							? {
-									...s,
-									participants: s.participants.map((p) => ({
-										...p,
-										buzzedIn: false,
-										buzzOrder: 0
-									}))
-								}
-							: null
-					);
-					break;
-				}
-				case 'scores-updated': {
-					const scores = args[0] as Array<{ participantId: string; score: number }>;
-					update((s) =>
-						s
-							? {
-									...s,
-									participants: s.participants.map((p) => {
-										const found = scores.find((sc) => sc.participantId === p.participantId);
-										return found ? { ...p, score: found.score } : p;
-									})
-								}
-							: null
-					);
-					break;
-				}
-			}
+			});
 		}
 	};
 }

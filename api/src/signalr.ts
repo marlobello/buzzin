@@ -37,10 +37,7 @@ export function getClientAccessUrl(
 ): { url: string; accessToken: string } {
 	const { endpoint, accessKey } = parse(process.env.AZURE_SIGNALR_CONNECTION_STRING!);
 	const url = `${endpoint}/client/?hub=${HUB}`;
-	const accessToken = jwt(url, accessKey, {
-		nameid: userId,
-		'asrs.s.ogl': `game-${gameId}` // pre-assigns client to the game group on connect
-	});
+	const accessToken = jwt(url, accessKey, { nameid: userId });
 	return { url, accessToken };
 }
 
@@ -50,8 +47,9 @@ export async function broadcastToGame(
 	args: unknown[]
 ): Promise<void> {
 	const { endpoint, accessKey } = parse(process.env.AZURE_SIGNALR_CONNECTION_STRING!);
-	const group = `game-${gameId}`;
-	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}/groups/${encodeURIComponent(group)}`;
+	// Broadcast to the entire hub — simpler and more reliable than groups in
+	// serverless mode. gameId is prepended to every message so clients can filter.
+	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}`;
 	const token = jwt(apiUrl, accessKey);
 
 	const res = await fetch(apiUrl, {
@@ -60,7 +58,7 @@ export async function broadcastToGame(
 			Authorization: `Bearer ${token}`,
 			'Content-Type': 'application/json'
 		},
-		body: JSON.stringify({ target, arguments: args })
+		body: JSON.stringify({ target, arguments: [gameId, ...args] })
 	});
 
 	if (!res.ok && res.status !== 202) {
