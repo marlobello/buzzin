@@ -34,7 +34,8 @@ export async function connectToGame(
 		'game-started',
 		'buzzed-in',
 		'buzzers-reset',
-		'scores-updated'
+		'scores-updated',
+		'game-ended'
 	];
 
 	for (const event of events) {

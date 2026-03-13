@@ -46,7 +46,8 @@ app.http('gamesJoin', {
 			name: body.name.trim(),
 			score: 0,
 			buzzedIn: false,
-			buzzOrder: 0
+			buzzOrder: 0,
+			buzzedAt: 0
 		};
 
 		await createParticipant(participant);

@@ -27,6 +27,9 @@ app.http('gamesPoint', {
 		if (game.moderatorId !== body.moderatorId) {
 			return { status: 403, jsonBody: { error: 'Not authorized' } };
 		}
+		if (game.status !== 'active') {
+			return { status: 409, jsonBody: { error: 'Game is not active' } };
+		}
 		if (!participant) return { status: 404, jsonBody: { error: 'Participant not found' } };
 
 		const newScore = Math.max(0, participant.score + (body.remove ? -1 : 1));

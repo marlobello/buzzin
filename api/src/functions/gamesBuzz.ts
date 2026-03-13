@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGame, getParticipant, updateParticipant, nextBuzzOrder } from '../storage';
+import { getGame, getParticipant, recordBuzz } from '../storage';
 import { broadcastToGame } from '../signalr';
 
 app.http('gamesBuzz', {
@@ -28,8 +28,7 @@ app.http('gamesBuzz', {
 			return { status: 409, jsonBody: { error: 'Already buzzed in' } };
 		}
 
-		const buzzOrder = await nextBuzzOrder(gameId);
-		await updateParticipant(gameId, body.participantId, { buzzedIn: true, buzzOrder });
+		const buzzOrder = await recordBuzz(gameId, body.participantId);
 
 		await broadcastToGame(gameId, 'buzzed-in', [
 			{

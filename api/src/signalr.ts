@@ -14,6 +14,13 @@ function parse(cs: string): ConnectionString {
 	return { endpoint, accessKey };
 }
 
+// Cached at module load time — connection string doesn't change at runtime
+let _parsed: ConnectionString | null = null;
+function getConn(): ConnectionString {
+	if (!_parsed) _parsed = parse(process.env.AZURE_SIGNALR_CONNECTION_STRING!);
+	return _parsed;
+}
+
 function b64url(obj: unknown): string {
 	return Buffer.from(JSON.stringify(obj)).toString('base64url');
 }
@@ -35,7 +42,7 @@ export function getClientAccessUrl(
 	userId: string,
 	gameId: string
 ): { url: string; accessToken: string } {
-	const { endpoint, accessKey } = parse(process.env.AZURE_SIGNALR_CONNECTION_STRING!);
+	const { endpoint, accessKey } = getConn();
 	const url = `${endpoint}/client/?hub=${HUB}`;
 	const accessToken = jwt(url, accessKey, { nameid: userId });
 	return { url, accessToken };
@@ -46,9 +53,7 @@ export async function broadcastToGame(
 	target: string,
 	args: unknown[]
 ): Promise<void> {
-	const { endpoint, accessKey } = parse(process.env.AZURE_SIGNALR_CONNECTION_STRING!);
-	// Broadcast to the entire hub — simpler and more reliable than groups in
-	// serverless mode. gameId is prepended to every message so clients can filter.
+	const { endpoint, accessKey } = getConn();
 	const apiUrl = `${endpoint}/api/v1/hubs/${HUB}`;
 	const token = jwt(apiUrl, accessKey);
 

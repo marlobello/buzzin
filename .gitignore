@@ -12,3 +12,6 @@ vite-cache
 api/node_modules
 api/dist
 api/local.settings.json
+
+# Bicep CLI artifacts
+infra/**/*.json

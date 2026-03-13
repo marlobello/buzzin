@@ -10,8 +10,8 @@
   },
   "main": "dist/src/functions/*.js",
   "dependencies": {
-    "@azure/functions": "^4.6.0",
-    "@azure/data-tables": "^13.3.0"
+    "@azure/data-tables": "^13.3.2",
+    "@azure/functions": "^4.11.2"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",

@@ -18,6 +18,7 @@ export interface ParticipantEntity {
 	score: number;
 	buzzedIn: boolean;
 	buzzOrder: number;
+	buzzedAt: number; // epoch ms — used for deterministic ordering
 }
 
 // ── Games ────────────────────────────────────────────────────────────────
@@ -155,6 +156,31 @@ export async function nextBuzzOrder(gameId: string): Promise<number> {
 	return max + 1;
 }
 
+/** Records a buzz using a millisecond timestamp and assigns buzz order by
+ *  re-ranking all buzzed-in participants by their buzzedAt time.
+ *  Returns the assigned buzzOrder (1 = first). */
+export async function recordBuzz(gameId: string, participantId: string): Promise<number> {
+	const buzzedAt = Date.now();
+	await updateParticipant(gameId, participantId, { buzzedIn: true, buzzedAt });
+
+	// Re-read all buzzed participants and assign deterministic order by time
+	const participants = await getParticipants(gameId);
+	const buzzed = participants
+		.filter((p) => p.buzzedIn)
+		.sort((a, b) => a.buzzedAt - b.buzzedAt);
+
+	const myRank = buzzed.findIndex((p) => p.participantId === participantId) + 1;
+
+	// Update buzzOrder for all buzzed players (handles any reordering edge cases)
+	await Promise.all(
+		buzzed.map((p, i) =>
+			updateParticipant(gameId, p.participantId, { buzzOrder: i + 1 })
+		)
+	);
+
+	return myRank;
+}
+
 export async function deleteGameData(gameId: string, joinCode: string): Promise<void> {
 	const participants = await getParticipants(gameId);
 	await Promise.all([
@@ -167,7 +193,6 @@ export async function deleteGameData(gameId: string, joinCode: string): Promise<
 }
 
 export async function getAllGames(): Promise<GameEntity[]> {
-	await ensureTables();
 	const results: GameEntity[] = [];
 	for await (const entity of gameClient().listEntities({
 		queryOptions: { filter: `PartitionKey eq 'GAME'` }
@@ -199,6 +224,7 @@ function entityToParticipant(e: any): ParticipantEntity {
 		name: e.name,
 		score: Number(e.score ?? 0),
 		buzzedIn: Boolean(e.buzzedIn),
-		buzzOrder: Number(e.buzzOrder ?? 0)
+		buzzOrder: Number(e.buzzOrder ?? 0),
+		buzzedAt: Number(e.buzzedAt ?? 0)
 	};
 }
