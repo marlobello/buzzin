@@ -1,0 +1,21 @@
+{
+  "name": "buzzin-api",
+  "version": "1.0.0",
+  "description": "Buzzin API – Azure Functions v4",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prestart": "npm run build",
+    "start": "func start"
+  },
+  "main": "dist/src/functions/*.js",
+  "dependencies": {
+    "@azure/functions": "^4.6.0",
+    "@azure/data-tables": "^13.3.0",
+    "@azure/signalr-management": "^1.0.0-beta.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "typescript": "^5.7.3"
+  }
+}
