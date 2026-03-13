@@ -55,6 +55,12 @@ resource swaAppSettings 'Microsoft.Web/staticSites/config@2023-12-01' = {
   }
 }
 
+resource swaCustomDomain 'Microsoft.Web/staticSites/customDomains@2023-12-01' = {
+  parent: swa
+  name: 'buzzin.dotheneedful.dev'
+  properties: {}
+}
+
 @description('Default hostname of the Static Web App')
 output hostname string = swa.properties.defaultHostname
 
