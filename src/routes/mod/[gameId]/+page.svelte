@@ -176,7 +176,7 @@
 						<span class="text-muted text-sm">{game.participants.length} players</span>
 					</div>
 				</div>
-				<button class="btn btn-secondary btn-sm" style="width:auto; padding: 8px 12px;" onclick={exitGame}>Exit</button>
+				<button class="btn btn-secondary btn-sm" style="width:auto; padding: 8px 12px;" onclick={exitGame}>End Game</button>
 			</div>
 
 			<!-- Join code -->

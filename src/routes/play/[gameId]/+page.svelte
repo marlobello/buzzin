@@ -120,11 +120,17 @@
 					<div style="font-size:0.65rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">Score</div>
 					<div style="font-size:1.3rem; font-weight:800; color: var(--success); line-height:1;">{myParticipant?.score ?? 0}</div>
 				</div>
+				<div style="width:1px; background:var(--border);"></div>
+				<div style="display:flex; align-items:center;">
+					<a href="/" title="Leave game" aria-label="Leave game" class="leave-btn">
+						<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+							<polyline points="16 17 21 12 16 7"/>
+							<line x1="21" y1="12" x2="9" y2="12"/>
+						</svg>
+					</a>
+				</div>
 			</div>
-		</div>
-
-		<div style="width:100%; max-width:480px; display:flex; justify-content:flex-end;">
-			<a href="/" class="btn btn-secondary" style="width:auto; padding:6px 14px; font-size:0.8rem; text-decoration:none;">← Leave Game</a>
 		</div>
 
 		<!-- Buzzer area -->
@@ -262,5 +268,21 @@
 				0 0 0 18px rgba(124, 58, 237, 0.1),
 				0 24px 56px rgba(124, 58, 237, 0.5);
 		}
+	}
+
+	.leave-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-muted);
+		opacity: 0.6;
+		padding: 4px;
+		border-radius: 6px;
+		text-decoration: none;
+		transition: opacity 0.15s, color 0.15s;
+	}
+	.leave-btn:hover {
+		opacity: 1;
+		color: var(--danger);
 	}
 </style>
