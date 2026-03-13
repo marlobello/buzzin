@@ -13,6 +13,7 @@ on:
       - 'tsconfig.json'
       - 'staticwebapp.config.json'
       - '.github/workflows/deploy-app.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:

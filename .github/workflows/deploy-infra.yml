@@ -47,3 +47,9 @@ jobs:
 
           HOSTNAME=$(echo "$OUTPUT" | jq -r '.swaHostname.value')
           echo "Deployed to: https://$HOSTNAME"
+
+  deploy-app:
+    name: Deploy App After Infra
+    needs: deploy-infra
+    uses: ./.github/workflows/deploy-app.yml
+    secrets: inherit
