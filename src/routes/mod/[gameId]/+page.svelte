@@ -101,6 +101,19 @@
 		}
 	}
 
+	async function exitGame() {
+		try {
+			await fetch(`/api/games/${gameId}`, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ moderatorId })
+			});
+		} catch {
+			// Best-effort; navigate regardless
+		}
+		await goto('/');
+	}
+
 	function copyJoinCode() {
 		if ($gameStore) navigator.clipboard.writeText($gameStore.joinCode).catch(() => {});
 		copied = true;
@@ -147,7 +160,7 @@
 						<span class="text-muted text-sm">{game.participants.length} players</span>
 					</div>
 				</div>
-				<a href="/" class="btn btn-secondary btn-sm" style="width:auto; padding: 8px 12px; text-decoration:none;">Exit</a>
+				<button class="btn btn-secondary btn-sm" style="width:auto; padding: 8px 12px;" onclick={exitGame}>Exit</button>
 			</div>
 
 			<!-- Join code -->

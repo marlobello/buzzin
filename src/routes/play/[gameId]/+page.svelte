@@ -19,6 +19,12 @@
 		$gameStore?.status === 'active' && myParticipant != null && !myParticipant.buzzedIn
 	);
 
+	$effect(() => {
+		if ($gameStore?.status === 'ended') {
+			goto('/');
+		}
+	});
+
 	onMount(async () => {
 		participantId = localStorage.getItem(`participant-${gameId}`) ?? '';
 		if (!participantId) {

@@ -155,6 +155,28 @@ export async function nextBuzzOrder(gameId: string): Promise<number> {
 	return max + 1;
 }
 
+export async function deleteGameData(gameId: string, joinCode: string): Promise<void> {
+	const participants = await getParticipants(gameId);
+	await Promise.all([
+		gameClient().deleteEntity('GAME', gameId).catch(() => {}),
+		lookupClient().deleteEntity('LOOKUP', joinCode).catch(() => {}),
+		...participants.map((p) =>
+			participantClient().deleteEntity(gameId, p.participantId).catch(() => {})
+		)
+	]);
+}
+
+export async function getAllGames(): Promise<GameEntity[]> {
+	await ensureTables();
+	const results: GameEntity[] = [];
+	for await (const entity of gameClient().listEntities({
+		queryOptions: { filter: `PartitionKey eq 'GAME'` }
+	})) {
+		results.push(entityToGame(entity));
+	}
+	return results;
+}
+
 // ── Entity mappers ───────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -69,7 +69,10 @@ function createGameStore() {
 							})
 						};
 					}
-					default:
+					case 'game-ended': {
+					return { ...s, status: 'ended' };
+				}
+				default:
 						return s;
 				}
 			});
