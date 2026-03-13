@@ -29,7 +29,7 @@
 	}
 
 	async function joinGame() {
-		if (!playerName.trim() || !joinGameName.trim() || joinCode.length < 4) return;
+		if (!playerName.trim() || joinCode.length < 6) return;
 		loading = true;
 		error = '';
 		try {
