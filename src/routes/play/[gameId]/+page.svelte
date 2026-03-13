@@ -11,7 +11,7 @@
 	let loading = $state(true);
 	let error = $state('');
 	let buzzing = $state(false);
-	let prevScore = $state<number | null>(null);
+	let prevScore: number | null = null;
 
 	let myParticipant = $derived(
 		gameStore.current?.participants.find((p) => p.participantId === participantId) ?? null
