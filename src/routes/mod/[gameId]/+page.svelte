@@ -24,15 +24,21 @@
 			if (!res.ok) throw new Error('Game not found');
 			const data = await res.json();
 			gameStore.set(data);
-
-			await connectToGame(gameId, moderatorId, (target, args) => {
-				gameStore.handleMessage(target, args);
-			});
 		} catch {
 			error = 'Could not load game. It may have expired.';
-		} finally {
 			loading = false;
+			return;
 		}
+
+		loading = false;
+
+		// SignalR is best-effort — game is still usable without real-time
+		connectToGame(gameId, moderatorId, (target, args) => {
+			gameStore.handleMessage(target, args);
+		}).catch((e) => {
+			console.warn('SignalR connection failed:', e);
+			error = 'Live updates unavailable — refresh to see changes.';
+		});
 	});
 
 	onDestroy(() => {
