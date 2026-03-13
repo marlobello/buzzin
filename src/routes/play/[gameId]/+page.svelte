@@ -145,7 +145,8 @@
 		{#if game.participants.length > 1}
 			<div style="width:100%; max-width:480px; padding-bottom:8px;">
 				<div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
-					{#each [...game.participants].sort((a,b) => b.score - a.score) as p (p.participantId)}
+					{#each [...game.participants].sort((a,b) => b.score - a.score) as p, i (p.participantId)}
+						{@const medal = ['🥇','🥈','🥉'][i]}
 						<div style="
 							flex-shrink:0;
 							background:var(--surface);
@@ -155,6 +156,7 @@
 							text-align:center;
 							min-width:80px;
 						">
+							<div style="font-size:0.85rem; line-height:1;">{medal ?? `${i+1}th`}</div>
 							<div style="font-size:0.7rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70px;">{p.name}</div>
 							<div style="font-weight:700; font-size:1.1rem; color:{p.score > 0 ? 'var(--success)' : 'var(--text-muted)'};">{p.score}</div>
 						</div>

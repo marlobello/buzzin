@@ -130,6 +130,10 @@
 			? [...$gameStore.participants].sort((a, b) => b.score - a.score)
 			: []
 	);
+
+	function rankLabel(i: number): string {
+		return ['🥇', '🥈', '🥉'][i] ?? `${i + 1}th`;
+	}
 </script>
 
 <svelte:head>
@@ -243,8 +247,9 @@
 					</p>
 				{:else}
 					<div class="stack">
-						{#each sortedByScore as p (p.participantId)}
+						{#each sortedByScore as p, i (p.participantId)}
 							<div class="score-item animate-in">
+								<span style="font-size:1.1rem; min-width:2rem;">{rankLabel(i)}</span>
 								<span class="score-name">{p.name}</span>
 								<span style="font-weight:700; color: {p.score > 0 ? 'var(--success)' : 'var(--text-muted)'}">
 									{p.score} {p.score === 1 ? 'pt' : 'pts'}
