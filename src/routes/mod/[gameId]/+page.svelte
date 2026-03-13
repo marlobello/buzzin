@@ -124,7 +124,7 @@
 		{@const game = $gameStore}
 		{@const buzzes = $buzzOrder}
 
-		<div style="width:100%; max-width:520px; display:flex; flex-direction:column; gap:16px;">
+		<div style="width:100%; max-width:480px; display:flex; flex-direction:column; gap:16px;">
 
 			<!-- Header -->
 			<div class="animate-in" style="display:flex; align-items:center; gap:12px; padding: 4px 0;">
