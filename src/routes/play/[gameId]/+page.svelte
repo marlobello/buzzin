@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { gameStore } from '$lib/stores/game';
+	import { gameStore } from '$lib/stores/game.svelte';
 	import { connectToGame, disconnect } from '$lib/signalr';
 
 	const gameId = $derived(page.params.gameId);
