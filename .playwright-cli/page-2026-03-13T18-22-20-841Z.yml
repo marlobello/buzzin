@@ -1,8 +1,0 @@
-- main [ref=e3]:
-  - generic [ref=e4]:
-    - generic [ref=e5]:
-      - generic [ref=e6]: buzzin
-      - paragraph [ref=e7]: Trivia buzz-in for everyone
-    - generic [ref=e8]:
-      - button "🎮 Create a Game" [ref=e9] [cursor=pointer]
-      - button "🎯 Join a Game" [ref=e10] [cursor=pointer]

@@ -3,12 +3,15 @@
 	import { goto } from '$app/navigation';
 	import { gameStore } from '$lib/stores/game.svelte';
 	import { connectToGame, disconnect } from '$lib/signalr';
+	import { playCoinSound } from '$lib/sounds';
+	import confetti from 'canvas-confetti';
 
 	const gameId = $derived(page.params.gameId);
 	let participantId = $state('');
 	let loading = $state(true);
 	let error = $state('');
 	let buzzing = $state(false);
+	let prevScore = $state<number | null>(null);
 
 	let myParticipant = $derived(
 		gameStore.current?.participants.find((p) => p.participantId === participantId) ?? null
@@ -17,6 +20,19 @@
 	let canBuzz = $derived(
 		gameStore.current?.status === 'active' && myParticipant != null && !myParticipant.buzzedIn
 	);
+
+	$effect(() => {
+		const score = myParticipant?.score ?? 0;
+		if (prevScore !== null && score > prevScore) {
+			playCoinSound();
+			confetti({
+				particleCount: 120,
+				spread: 70,
+				origin: { y: 0.6 }
+			});
+		}
+		prevScore = score;
+	});
 
 	$effect(() => {
 		if (gameStore.current?.status === 'ended') {

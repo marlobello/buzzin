@@ -16,12 +16,14 @@
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.55.0",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
+    "@types/canvas-confetti": "^1.9.0",
     "svelte": "^5.53.11",
     "svelte-check": "^4.4.5",
     "typescript": "^5.9.3",
     "vite": "^6.2.1"
   },
   "dependencies": {
-    "@microsoft/signalr": "^8.0.7"
+    "@microsoft/signalr": "^8.0.7",
+    "canvas-confetti": "^1.9.4"
   }
 }
