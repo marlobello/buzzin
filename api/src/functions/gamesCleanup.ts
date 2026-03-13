@@ -1,11 +1,11 @@
 import { app, InvocationContext, Timer } from '@azure/functions';
 import { getAllGames, deleteGameData } from '../storage';
 
-const STALE_HOURS = 4;
+const STALE_HOURS = 12;
 
 app.timer('gamesCleanup', {
-	// Runs at the top of every hour
-	schedule: '0 0 * * * *',
+	// Runs every 4 hours
+	schedule: '0 0 */4 * * *',
 	handler: async (_timer: Timer, context: InvocationContext): Promise<void> => {
 		const cutoff = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
 		let cleaned = 0;
