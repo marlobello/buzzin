@@ -252,9 +252,15 @@
 	}
 
 	.buzzer-icon {
-		font-size: min(20vw, 80px);
+		font-size: min(22vw, 90px);
+		font-weight: 900;
+		color: #ffffff;
 		pointer-events: none;
 		user-select: none;
+		text-shadow:
+			0 2px 4px rgba(0, 0, 0, 0.6),
+			0 4px 16px rgba(0, 0, 0, 0.4);
+		letter-spacing: -0.02em;
 	}
 
 	@keyframes pulse-glow {
