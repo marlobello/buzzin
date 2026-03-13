@@ -93,16 +93,33 @@
 		{@const game = $gameStore}
 
 		<!-- Top bar -->
-		<div style="width:100%; max-width:480px; display:flex; align-items:center; justify-content:space-between; padding: 4px 0;">
-			<div>
-				<div style="font-weight:700; font-size:1.1rem;">{game.gameName}</div>
-				<div class="text-muted text-sm">{myParticipant?.name ?? ''}</div>
+		<div style="
+			width: 100%;
+			max-width: 480px;
+			display: grid;
+			grid-template-columns: 1fr auto;
+			align-items: center;
+			gap: 12px;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			padding: 10px 16px;
+		">
+			<div style="min-width:0;">
+				<div style="font-size:0.65rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">Game</div>
+				<div style="font-weight:700; font-size:1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{game.gameName}</div>
 			</div>
-			<div style="text-align:right;">
-				<div style="font-size:1.6rem; font-weight:800; color: var(--success);">
-					{myParticipant?.score ?? 0}
+			<div style="display:flex; align-items:stretch; gap:12px;">
+				<div style="width:1px; background:var(--border);"></div>
+				<div style="text-align:center; min-width:48px;">
+					<div style="font-size:0.65rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">Player</div>
+					<div style="font-weight:600; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100px;">{myParticipant?.name ?? ''}</div>
 				</div>
-				<div class="text-muted text-sm">points</div>
+				<div style="width:1px; background:var(--border);"></div>
+				<div style="text-align:center; min-width:40px;">
+					<div style="font-size:0.65rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">Score</div>
+					<div style="font-size:1.3rem; font-weight:800; color: var(--success); line-height:1;">{myParticipant?.score ?? 0}</div>
+				</div>
 			</div>
 		</div>
 
