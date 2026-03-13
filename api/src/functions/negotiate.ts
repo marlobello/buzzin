@@ -14,8 +14,7 @@ app.http('negotiate', {
 		}
 
 		try {
-			const raw = await getClientAccessUrl(userId, gameId);
-			const info = JSON.parse(raw);
+			const info = getClientAccessUrl(userId, gameId);
 			return { jsonBody: info };
 		} catch (err) {
 			return { status: 500, jsonBody: { error: 'Failed to negotiate SignalR connection' } };
