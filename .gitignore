@@ -15,3 +15,7 @@ api/local.settings.json
 
 # Bicep CLI artifacts
 infra/**/*.json
+
+# Playwright CLI artifacts
+.playwright-cli/
+.playwright/
