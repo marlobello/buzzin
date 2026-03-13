@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { gameStore } from '$lib/stores/game.svelte';
 	import { connectToGame, disconnect } from '$lib/signalr';
 	import { playCoinSound } from '$lib/sounds';
@@ -12,6 +13,11 @@
 	let error = $state('');
 	let buzzing = $state(false);
 	let prevScore: number | null = null;
+	let fireConfetti: confetti.CreateTypes | null = null;
+
+	onMount(() => {
+		fireConfetti = confetti.create(undefined, { useWorker: false, resize: true });
+	});
 
 	let myParticipant = $derived(
 		gameStore.current?.participants.find((p) => p.participantId === participantId) ?? null
@@ -25,11 +31,7 @@
 		const score = myParticipant?.score ?? 0;
 		if (prevScore !== null && score > prevScore) {
 			playCoinSound();
-			confetti({
-				particleCount: 120,
-				spread: 70,
-				origin: { y: 0.6 }
-			});
+			fireConfetti?.({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
 		}
 		prevScore = score;
 	});
