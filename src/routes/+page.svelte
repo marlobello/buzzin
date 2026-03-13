@@ -4,13 +4,11 @@
 	let mode: 'home' | 'create' | 'join' = $state('home');
 	let gameName = $state('');
 	let playerName = $state('');
-	let joinGameName = $state('');
 	let joinCode = $state('');
 	let loading = $state(false);
 	let error = $state('');
 
-	async function createGame() {
-		if (!gameName.trim()) return;
+	async function createGame() {		if (!gameName.trim()) return;
 		loading = true;
 		error = '';
 		try {
@@ -40,7 +38,6 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					name: playerName.trim(),
-					gameName: joinGameName.trim(),
 					joinCode: joinCode.toUpperCase().trim()
 				})
 			});
@@ -139,26 +136,14 @@
 					</div>
 
 					<div class="field">
-						<label for="join-game-name">Game Name</label>
-						<input
-							id="join-game-name"
-							class="input"
-							type="text"
-							placeholder="Friday Night Trivia"
-							bind:value={joinGameName}
-							maxlength={40}
-						/>
-					</div>
-
-					<div class="field">
 						<label for="join-code">Join Code</label>
 						<input
 							id="join-code"
 							class="input uppercase"
 							type="text"
-							placeholder="ABCD"
+							placeholder="ABCDEF"
 							bind:value={joinCode}
-							maxlength={4}
+							maxlength={6}
 							inputmode="text"
 							autocomplete="off"
 							autocorrect="off"
@@ -173,7 +158,7 @@
 					<button
 						class="btn btn-primary"
 						onclick={joinGame}
-						disabled={loading || !playerName.trim() || !joinGameName.trim() || joinCode.length < 4}
+						disabled={loading || !playerName.trim() || joinCode.length < 6}
 					>
 						{loading ? 'Joining…' : 'Join Game →'}
 					</button>

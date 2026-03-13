@@ -10,23 +10,19 @@ app.http('gamesJoin', {
 	handler: async (request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> => {
 		const body = (await request.json().catch(() => null)) as {
 			name?: string;
-			gameName?: string;
 			joinCode?: string;
 		} | null;
 
-		if (!body?.name?.trim() || !body?.gameName?.trim() || !body?.joinCode?.trim()) {
-			return { status: 400, jsonBody: { error: 'name, gameName, and joinCode are required' } };
+		if (!body?.name?.trim() || !body?.joinCode?.trim()) {
+			return { status: 400, jsonBody: { error: 'name and joinCode are required' } };
 		}
 
-		const game = await findGameByJoinCode(
-			body.joinCode.toUpperCase().trim(),
-			body.gameName.trim()
-		);
+		const game = await findGameByJoinCode(body.joinCode.toUpperCase().trim());
 
 		if (!game) {
 			return {
 				status: 404,
-				jsonBody: { error: 'Game not found. Check the game name and join code.' }
+				jsonBody: { error: 'Game not found. Check the join code and try again.' }
 			};
 		}
 

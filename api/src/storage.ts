@@ -71,13 +71,9 @@ export async function updateGameStatus(gameId: string, status: GameEntity['statu
 	);
 }
 
-export async function findGameByJoinCode(
-	joinCode: string,
-	gameName: string
-): Promise<GameEntity | null> {
+export async function findGameByJoinCode(joinCode: string): Promise<GameEntity | null> {
 	try {
 		const lookup = await lookupClient().getEntity('LOOKUP', joinCode);
-		if ((lookup.gameName as string).toLowerCase() !== gameName.toLowerCase()) return null;
 		return getGame(lookup.gameId as string);
 	} catch {
 		return null;

@@ -9,7 +9,7 @@ function generateGameId(): string {
 function generateJoinCode(): string {
 	// Exclude visually ambiguous characters (I, O)
 	const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-	const bytes = randomBytes(4);
+	const bytes = randomBytes(6);
 	return Array.from(bytes, (b) => chars[b % chars.length]).join('');
 }
 
