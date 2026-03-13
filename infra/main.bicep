@@ -32,7 +32,7 @@ module signalr 'modules/signalr.bicep' = {
 module storage 'modules/storage.bicep' = {
   name: 'storage'
   params: {
-    name: 'st${replace(prefix, '-', '')}${uniqueString(resourceGroup().id)}'
+    name: 'st${take(uniqueString(resourceGroup().id), 22)}'
     location: location
   }
 }
