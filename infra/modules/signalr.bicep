@@ -25,7 +25,11 @@ resource signalR 'Microsoft.SignalRService/signalR@2023-02-01' = {
       }
     ]
     cors: {
-      allowedOrigins: ['*']
+      allowedOrigins: [
+        'https://buzzin.dotheneedful.dev',
+        'https://salmon-coast-0f942d20f.1.azurestaticapps.net',
+        'http://localhost:5173'
+      ]
     }
     upstream: {}
   }

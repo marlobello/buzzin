@@ -22,6 +22,9 @@ app.http('gamesCreate', {
 		if (!body?.gameName?.trim()) {
 			return { status: 400, jsonBody: { error: 'gameName is required' } };
 		}
+		if (body.gameName.trim().length > 100) {
+			return { status: 400, jsonBody: { error: 'gameName must be 100 characters or fewer' } };
+		}
 
 		const gameId = generateGameId();
 		const moderatorId = `mod-${randomBytes(6).toString('hex')}`;

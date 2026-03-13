@@ -16,6 +16,9 @@ app.http('gamesJoin', {
 		if (!body?.name?.trim() || !body?.joinCode?.trim()) {
 			return { status: 400, jsonBody: { error: 'name and joinCode are required' } };
 		}
+		if (body.name.trim().length > 50) {
+			return { status: 400, jsonBody: { error: 'name must be 50 characters or fewer' } };
+		}
 
 		const game = await findGameByJoinCode(body.joinCode.toUpperCase().trim());
 
