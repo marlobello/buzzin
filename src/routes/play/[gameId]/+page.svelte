@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { gameStore } from '$lib/stores/game.svelte';
 	import { connectToGame, disconnect } from '$lib/signalr';
-	import { playCoinSound } from '$lib/sounds';
+	import { playBuzzSound, playCoinSound, playRemoveSound } from '$lib/sounds';
 	import confetti from 'canvas-confetti';
 
 	const gameId = $derived(page.params.gameId);
@@ -13,6 +13,7 @@
 	let error = $state('');
 	let buzzing = $state(false);
 	let prevScore: number | null = null;
+	let prevBuzzOrder: number | null = null;
 	let fireConfetti: confetti.CreateTypes | null = null;
 
 	onMount(() => {
@@ -29,11 +30,23 @@
 
 	$effect(() => {
 		const score = myParticipant?.score ?? 0;
-		if (prevScore !== null && score > prevScore) {
-			playCoinSound();
-			fireConfetti?.({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+		if (prevScore !== null) {
+			if (score > prevScore) {
+				playCoinSound();
+				fireConfetti?.({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+			} else if (score < prevScore) {
+				playRemoveSound();
+			}
 		}
 		prevScore = score;
+	});
+
+	$effect(() => {
+		const buzzOrder = myParticipant?.buzzOrder ?? 0;
+		if (prevBuzzOrder !== null && prevBuzzOrder !== 1 && buzzOrder === 1) {
+			playBuzzSound();
+		}
+		prevBuzzOrder = buzzOrder;
 	});
 
 	$effect(() => {
