@@ -11,11 +11,16 @@ app.http('gamesPoint', {
 		const body = (await request.json().catch(() => null)) as {
 			participantId?: string;
 			moderatorId?: string;
+			delta?: number;
 			remove?: boolean;
 		} | null;
 
 		if (!body?.participantId) {
 			return { status: 400, jsonBody: { error: 'participantId is required' } };
+		}
+
+		if (body.delta !== undefined && body.delta !== -1 && body.delta !== 1) {
+			return { status: 400, jsonBody: { error: 'delta must be -1 or 1' } };
 		}
 
 		const [game, participant] = await Promise.all([
@@ -32,7 +37,8 @@ app.http('gamesPoint', {
 		}
 		if (!participant) return { status: 404, jsonBody: { error: 'Participant not found' } };
 
-		const newScore = Math.max(0, participant.score + (body.remove ? -1 : 1));
+		const scoreDelta = body.delta ?? (body.remove ? -1 : 1);
+		const newScore = Math.max(0, participant.score + scoreDelta);
 		await updateParticipant(gameId, body.participantId, { score: newScore });
 
 		// Broadcast updated scores for all participants

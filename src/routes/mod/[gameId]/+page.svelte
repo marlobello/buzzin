@@ -99,17 +99,38 @@
 		}
 	}
 
-	async function awardPoint(participantId: string) {
-		const removing = awardedThisRound.has(participantId);
-		actionLoading = `point-${participantId}`;
+	function isParticipantScoreBusy(participantId: string) {
+		return (
+			actionLoading === `point-${participantId}` ||
+			actionLoading === `score-${participantId}`
+		);
+	}
+
+	function removeAwardedThisRound(participantId: string) {
+		if (!awardedThisRound.has(participantId)) return;
+		awardedThisRound.delete(participantId);
+		awardedThisRound = new Set(awardedThisRound);
+	}
+
+	async function changeScore(participantId: string, delta: -1 | 1, source: 'award' | 'scoreboard') {
+		actionLoading = source === 'award' ? `point-${participantId}` : `score-${participantId}`;
 		try {
-			await post(`/api/games/${gameId}/point`, { participantId, remove: removing });
-			if (removing) {
-				awardedThisRound.delete(participantId);
-				awardedThisRound = new Set(awardedThisRound);
+			await post(`/api/games/${gameId}/point`, { participantId, delta });
+			if (source === 'award') {
+				if (delta < 0) {
+					removeAwardedThisRound(participantId);
+					playRemoveSound();
+				} else {
+					awardedThisRound = new Set([...awardedThisRound, participantId]);
+					playCoinSound();
+				}
+				return;
+			}
+
+			if (delta < 0) {
+				removeAwardedThisRound(participantId);
 				playRemoveSound();
 			} else {
-				awardedThisRound = new Set([...awardedThisRound, participantId]);
 				playCoinSound();
 			}
 		} catch {
@@ -117,6 +138,11 @@
 		} finally {
 			actionLoading = null;
 		}
+	}
+
+	async function awardPoint(participantId: string) {
+		const removing = awardedThisRound.has(participantId);
+		await changeScore(participantId, removing ? -1 : 1, 'award');
 	}
 
 	async function exitGame() {
@@ -241,7 +267,7 @@
 									class="btn {awardedThisRound.has(participant.participantId) ? 'btn-danger' : 'btn-success'} btn-sm"
 									style="width:auto; padding: 6px 12px; font-size:0.8rem;"
 									onclick={() => awardPoint(participant.participantId)}
-									disabled={actionLoading === `point-${participant.participantId}`}
+									disabled={isParticipantScoreBusy(participant.participantId)}
 								>
 									{actionLoading === `point-${participant.participantId}` ? '…' : awardedThisRound.has(participant.participantId) ? '✕ Remove' : '✓ Point'}
 								</button>
@@ -264,9 +290,29 @@
 							<div class="score-item animate-in">
 								<span style="font-size:1.1rem; min-width:2rem;">{rankLabel(i)}</span>
 								<span class="score-name">{p.name}</span>
-								<span style="font-weight:700; color: {p.score > 0 ? 'var(--success)' : 'var(--text-muted)'}">
-									{p.score} {p.score === 1 ? 'pt' : 'pts'}
-								</span>
+								<div style="display:flex; align-items:center; gap:8px;">
+									<button
+										class="btn btn-secondary btn-sm"
+										style="width:auto; min-width:2rem; padding:4px 8px; font-size:0.85rem; line-height:1;"
+										onclick={() => changeScore(p.participantId, -1, 'scoreboard')}
+										disabled={isParticipantScoreBusy(p.participantId)}
+										aria-label={`Decrease ${p.name}'s score`}
+									>
+										−
+									</button>
+									<span style="font-weight:700; min-width:4.5rem; text-align:center; color: {p.score > 0 ? 'var(--success)' : 'var(--text-muted)'}">
+										{p.score} {p.score === 1 ? 'pt' : 'pts'}
+									</span>
+									<button
+										class="btn btn-secondary btn-sm"
+										style="width:auto; min-width:2rem; padding:4px 8px; font-size:0.85rem; line-height:1;"
+										onclick={() => changeScore(p.participantId, 1, 'scoreboard')}
+										disabled={isParticipantScoreBusy(p.participantId)}
+										aria-label={`Increase ${p.name}'s score`}
+									>
+										+
+									</button>
+								</div>
 							</div>
 						{/each}
 					</div>
