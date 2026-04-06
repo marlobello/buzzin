@@ -23,6 +23,7 @@
     "vite": "^6.2.1"
   },
   "dependencies": {
+    "@microsoft/clarity": "^1.0.2",
     "@microsoft/signalr": "^8.0.7",
     "canvas-confetti": "^1.9.4"
   }
