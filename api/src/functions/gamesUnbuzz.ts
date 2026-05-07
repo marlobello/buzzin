@@ -1,11 +1,11 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGame, getParticipant, getParticipants, recordBuzz, BUZZ_LIMIT } from '../storage';
+import { getGame, getParticipant, recordUnbuzz } from '../storage';
 import { broadcastToGame } from '../signalr';
 
-app.http('gamesBuzz', {
+app.http('gamesUnbuzz', {
 	methods: ['POST'],
 	authLevel: 'anonymous',
-	route: 'games/{gameId}/buzz',
+	route: 'games/{gameId}/unbuzz',
 	handler: async (request: HttpRequest, _context: InvocationContext): Promise<HttpResponseInit> => {
 		const gameId = request.params.gameId;
 		const body = (await request.json().catch(() => null)) as { participantId?: string } | null;
@@ -24,26 +24,19 @@ app.http('gamesBuzz', {
 		if (game.status !== 'active') {
 			return { status: 409, jsonBody: { error: 'Game is not active' } };
 		}
-		if (participant.buzzedIn) {
-			return { status: 409, jsonBody: { error: 'Already buzzed in' } };
+		if (!participant.buzzedIn) {
+			return { status: 409, jsonBody: { error: 'Not buzzed in' } };
 		}
 
-		const allParticipants = await getParticipants(gameId);
-		const buzzedCount = allParticipants.filter((p) => p.buzzedIn).length;
-		if (buzzedCount >= BUZZ_LIMIT) {
-			return { status: 409, jsonBody: { error: 'Buzz limit reached' } };
-		}
+		const updatedBuzzList = await recordUnbuzz(gameId, body.participantId);
 
-		const buzzOrder = await recordBuzz(gameId, body.participantId);
-
-		await broadcastToGame(gameId, 'buzzed-in', [
+		await broadcastToGame(gameId, 'unbuzzed', [
 			{
 				participantId: body.participantId,
-				name: participant.name,
-				buzzOrder
+				buzzList: updatedBuzzList
 			}
 		]);
 
-		return { jsonBody: { ok: true, buzzOrder } };
+		return { jsonBody: { ok: true } };
 	}
 });

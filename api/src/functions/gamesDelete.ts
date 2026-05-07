@@ -1,6 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getGame, deleteGameData } from '../storage';
-import { broadcastToGame } from '../signalr';
 
 app.http('gamesDelete', {
 	methods: ['DELETE'],
@@ -16,9 +15,7 @@ app.http('gamesDelete', {
 			return { status: 403, jsonBody: { error: 'Not authorized' } };
 		}
 
-		// Notify all participants before deleting
-		await broadcastToGame(gameId, 'game-ended', []).catch(() => {});
-
+		// Delete game data (game-ended was already broadcast by /end endpoint)
 		await deleteGameData(gameId, game.joinCode);
 
 		return { status: 204 };

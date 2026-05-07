@@ -146,6 +146,17 @@
 	}
 
 	async function exitGame() {
+		actionLoading = 'ending';
+		try {
+			await post(`/api/games/${gameId}/end`);
+		} catch {
+			// Best-effort
+		} finally {
+			actionLoading = null;
+		}
+	}
+
+	async function deleteAndLeave() {
 		try {
 			await fetch(`/api/games/${gameId}`, {
 				method: 'DELETE',
@@ -153,7 +164,7 @@
 				body: JSON.stringify({ moderatorId })
 			});
 		} catch {
-			// Best-effort; navigate regardless
+			// Best-effort
 		}
 		await goto('/');
 	}
@@ -170,8 +181,19 @@
 			: []
 	);
 
+	let finalScores = $derived(
+		gameStore.current?.finalScores ??
+			(gameStore.current
+				? [...gameStore.current.participants]
+						.map((p) => ({ participantId: p.participantId, name: p.name, score: p.score }))
+						.sort((a, b) => b.score - a.score)
+				: [])
+	);
+
+	const medals = ['🥇', '🥈', '🥉'];
+
 	function rankLabel(i: number): string {
-		return ['🥇', '🥈', '🥉'][i] ?? `${i + 1}th`;
+		return medals[i] ?? `${i + 1}th`;
 	}
 </script>
 
@@ -195,6 +217,61 @@
 		{@const game = gameStore.current}
 		{@const buzzes = gameStore.buzzOrder}
 
+		{#if game.status === 'ended'}
+			<!-- Final Results Screen -->
+			<div style="width:100%; max-width:480px; display:flex; flex-direction:column; align-items:center; gap:16px; padding:24px 0;">
+				<h1 class="results-title">🎉 Game Over!</h1>
+				<p class="text-muted" style="margin:0;">{game.gameName}</p>
+
+				<!-- Podium -->
+				{#if finalScores.length > 0}
+					<div class="podium">
+						{#if finalScores[1]}
+							<div class="podium-place second animate-in">
+								<div class="podium-medal">{medals[1]}</div>
+								<div class="podium-name">{finalScores[1].name}</div>
+								<div class="podium-score">{finalScores[1].score} pts</div>
+								<div class="podium-block second-block">2</div>
+							</div>
+						{/if}
+						{#if finalScores[0]}
+							<div class="podium-place first animate-in">
+								<div class="podium-medal">{medals[0]}</div>
+								<div class="podium-name">{finalScores[0].name}</div>
+								<div class="podium-score">{finalScores[0].score} pts</div>
+								<div class="podium-block first-block">1</div>
+							</div>
+						{/if}
+						{#if finalScores[2]}
+							<div class="podium-place third animate-in">
+								<div class="podium-medal">{medals[2]}</div>
+								<div class="podium-name">{finalScores[2].name}</div>
+								<div class="podium-score">{finalScores[2].score} pts</div>
+								<div class="podium-block third-block">3</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- Full leaderboard -->
+				{#if finalScores.length > 3}
+					<div class="results-leaderboard" style="width:100%;">
+						{#each finalScores.slice(3) as p, i (p.participantId)}
+							<div class="results-row">
+								<span class="results-rank">{i + 4}th</span>
+								<span class="results-name">{p.name}</span>
+								<span class="results-score">{p.score} pts</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<button class="btn btn-secondary" style="max-width:300px; width:100%;" onclick={deleteAndLeave}>
+					🗑️ Delete Game & Exit
+				</button>
+			</div>
+		{:else}
+
 		<div style="width:100%; max-width:480px; display:flex; flex-direction:column; gap:16px;">
 
 			<!-- Header -->
@@ -208,7 +285,14 @@
 						<span class="text-muted text-sm">{game.participants.length} players</span>
 					</div>
 				</div>
-				<button class="btn btn-secondary btn-sm" style="width:auto; padding: 8px 12px;" onclick={exitGame}>End Game</button>
+				<button
+					class="btn btn-secondary btn-sm"
+					style="width:auto; padding: 8px 12px;"
+					onclick={exitGame}
+					disabled={actionLoading === 'ending'}
+				>
+					{actionLoading === 'ending' ? 'Ending…' : 'End Game'}
+				</button>
 			</div>
 
 			<!-- Join code -->
@@ -255,7 +339,9 @@
 				<div class="card animate-in">
 					<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
 						<h2>Buzz Order</h2>
-						<span class="badge badge-accent">{buzzes.length} buzzed</span>
+						<span class="badge {gameStore.buzzLimitReached ? 'badge-warning' : 'badge-accent'}">
+							{buzzes.length}/3 buzzed
+						</span>
 					</div>
 					<div class="stack">
 						{#each buzzes as participant, i (participant.participantId)}
@@ -320,5 +406,128 @@
 			</div>
 
 		</div>
+		{/if}
 	{/if}
 </main>
+
+<style>
+	.results-title {
+		font-size: 2rem;
+		font-weight: 900;
+		background: linear-gradient(135deg, #a855f7, #ec4899);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+		margin: 0;
+	}
+
+	.podium {
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		margin: 16px 0;
+	}
+
+	.podium-place {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		flex: 1;
+		max-width: 140px;
+	}
+
+	.podium-medal {
+		font-size: 2.5rem;
+		line-height: 1;
+	}
+
+	.first .podium-medal {
+		font-size: 3rem;
+		filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.5));
+	}
+
+	.podium-name {
+		font-weight: 700;
+		font-size: 0.95rem;
+		text-align: center;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
+	}
+
+	.podium-score {
+		font-size: 0.85rem;
+		color: var(--success);
+		font-weight: 600;
+	}
+
+	.podium-block {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 800;
+		font-size: 1.4rem;
+		color: rgba(255, 255, 255, 0.5);
+		border-radius: 8px 8px 0 0;
+	}
+
+	.first-block {
+		height: 120px;
+		background: linear-gradient(180deg, #a855f7, #7c3aed);
+	}
+
+	.second-block {
+		height: 85px;
+		background: linear-gradient(180deg, #64748b, #475569);
+	}
+
+	.third-block {
+		height: 60px;
+		background: linear-gradient(180deg, #78716c, #57534e);
+	}
+
+	.results-leaderboard {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+
+	.results-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.results-row:last-child {
+		border-bottom: none;
+	}
+
+	.results-rank {
+		font-weight: 600;
+		color: var(--text-muted);
+		min-width: 2.5rem;
+	}
+
+	.results-name {
+		flex: 1;
+		font-weight: 600;
+	}
+
+	.results-score {
+		font-weight: 700;
+		color: var(--success);
+	}
+
+	.badge-warning {
+		background: rgba(234, 179, 8, 0.15);
+		color: #eab308;
+	}
+</style>

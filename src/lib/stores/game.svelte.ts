@@ -12,7 +12,10 @@ export interface GameState {
 	joinCode: string;
 	status: 'waiting' | 'active' | 'ended';
 	participants: Participant[];
+	finalScores?: Array<{ participantId: string; name: string; score: number }>;
 }
+
+const BUZZ_LIMIT = 3;
 
 class GameStore {
 	current = $state<GameState | null>(null);
@@ -27,6 +30,10 @@ class GameStore {
 					.filter((p) => p.buzzedIn)
 					.sort((a, b) => a.buzzOrder - b.buzzOrder)
 			: [];
+	}
+
+	get buzzLimitReached(): boolean {
+		return this.buzzOrder.length >= BUZZ_LIMIT;
 	}
 
 	handleMessage(target: string, args: unknown[]) {
@@ -63,6 +70,23 @@ class GameStore {
 				};
 				break;
 			}
+			case 'unbuzzed': {
+				const { participantId, buzzList } = payload[0] as {
+					participantId: string;
+					buzzList: Array<{ participantId: string; buzzOrder: number }>;
+				};
+				this.current = {
+					...s,
+					participants: s.participants.map((p) => {
+						if (p.participantId === participantId) {
+							return { ...p, buzzedIn: false, buzzOrder: 0 };
+						}
+						const updated = buzzList.find((b) => b.participantId === p.participantId);
+						return updated ? { ...p, buzzOrder: updated.buzzOrder } : p;
+					})
+				};
+				break;
+			}
 			case 'buzzers-reset': {
 				this.current = {
 					...s,
@@ -82,7 +106,14 @@ class GameStore {
 				break;
 			}
 			case 'game-ended': {
-				this.current = { ...s, status: 'ended' };
+				const data = payload[0] as
+					| { finalScores: Array<{ participantId: string; name: string; score: number }> }
+					| undefined;
+				this.current = {
+					...s,
+					status: 'ended',
+					finalScores: data?.finalScores
+				};
 				break;
 			}
 		}

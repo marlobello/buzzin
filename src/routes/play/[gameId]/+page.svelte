@@ -12,9 +12,11 @@
 	let loading = $state(true);
 	let error = $state('');
 	let buzzing = $state(false);
+	let unbuzzing = $state(false);
 	let prevScore: number | null = null;
 	let prevBuzzOrder: number | null = null;
 	let fireConfetti: confetti.CreateTypes | null = null;
+	let endConfettiFired = false;
 
 	onMount(() => {
 		fireConfetti = confetti.create(undefined, { useWorker: false, resize: true });
@@ -25,7 +27,24 @@
 	);
 
 	let canBuzz = $derived(
-		gameStore.current?.status === 'active' && myParticipant != null && !myParticipant.buzzedIn
+		gameStore.current?.status === 'active' &&
+			myParticipant != null &&
+			!myParticipant.buzzedIn &&
+			!gameStore.buzzLimitReached
+	);
+
+	let canUnbuzz = $derived(
+		gameStore.current?.status === 'active' && myParticipant != null && myParticipant.buzzedIn
+	);
+
+	// Final scores for the results screen
+	let finalScores = $derived(
+		gameStore.current?.finalScores ??
+			(gameStore.current
+				? [...gameStore.current.participants]
+						.map((p) => ({ participantId: p.participantId, name: p.name, score: p.score }))
+						.sort((a, b) => b.score - a.score)
+				: [])
 	);
 
 	$effect(() => {
@@ -49,9 +68,17 @@
 		prevBuzzOrder = buzzOrder;
 	});
 
+	// Fire confetti when game ends (for the winner)
 	$effect(() => {
-		if (gameStore.current?.status === 'ended') {
-			goto('/');
+		if (gameStore.current?.status === 'ended' && !endConfettiFired) {
+			endConfettiFired = true;
+			if (finalScores.length > 0 && finalScores[0].participantId === participantId) {
+				// Winner gets big confetti
+				fireConfetti?.({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+				setTimeout(() => fireConfetti?.({ particleCount: 100, spread: 80, origin: { y: 0.4 } }), 500);
+			} else {
+				fireConfetti?.({ particleCount: 60, spread: 50, origin: { y: 0.6 } });
+			}
 		}
 	});
 
@@ -111,6 +138,24 @@
 			buzzing = false;
 		}
 	}
+
+	async function unbuzz() {
+		if (!canUnbuzz || unbuzzing) return;
+		unbuzzing = true;
+		try {
+			await fetch(`/api/games/${gameId}/unbuzz`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ participantId })
+			});
+		} catch {
+			// Silently ignore — UI will update via SignalR
+		} finally {
+			unbuzzing = false;
+		}
+	}
+
+	const medals = ['🥇', '🥈', '🥉'];
 </script>
 
 <svelte:head>
@@ -131,6 +176,61 @@
 
 	{:else if gameStore.current}
 		{@const game = gameStore.current}
+
+		{#if game.status === 'ended'}
+			<!-- Final Results Screen -->
+			<div class="results-container animate-in">
+				<h1 class="results-title">🎉 Game Over!</h1>
+				<p class="results-subtitle">{game.gameName}</p>
+
+				<!-- Podium -->
+				{#if finalScores.length > 0}
+					<div class="podium">
+						{#if finalScores[1]}
+							<div class="podium-place second animate-in">
+								<div class="podium-medal">{medals[1]}</div>
+								<div class="podium-name">{finalScores[1].name}</div>
+								<div class="podium-score">{finalScores[1].score} pts</div>
+								<div class="podium-block second-block">2</div>
+							</div>
+						{/if}
+						{#if finalScores[0]}
+							<div class="podium-place first animate-in">
+								<div class="podium-medal">{medals[0]}</div>
+								<div class="podium-name">{finalScores[0].name}</div>
+								<div class="podium-score">{finalScores[0].score} pts</div>
+								<div class="podium-block first-block">1</div>
+							</div>
+						{/if}
+						{#if finalScores[2]}
+							<div class="podium-place third animate-in">
+								<div class="podium-medal">{medals[2]}</div>
+								<div class="podium-name">{finalScores[2].name}</div>
+								<div class="podium-score">{finalScores[2].score} pts</div>
+								<div class="podium-block third-block">3</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- Full leaderboard -->
+				{#if finalScores.length > 3}
+					<div class="results-leaderboard">
+						{#each finalScores.slice(3) as p, i (p.participantId)}
+							<div class="results-row">
+								<span class="results-rank">{i + 4}th</span>
+								<span class="results-name">{p.name}</span>
+								<span class="results-score">{p.score} pts</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<a href="/" class="btn btn-primary" style="margin-top:24px; text-decoration:none; max-width:300px; width:100%;">
+					← Back to Home
+				</a>
+			</div>
+		{:else}
 
 		<!-- Top bar -->
 		<div style="
@@ -176,35 +276,55 @@
 		<!-- Buzzer area -->
 		<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
 
-			<!-- Status text: only shown when waiting or ready, not when buzzed -->
-			{#if game.status === 'waiting' || !myParticipant?.buzzedIn}
+			<!-- Status text -->
+			{#if game.status === 'waiting'}
 				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
-					{game.status === 'waiting' ? 'Waiting for moderator to start…' : 'Ready — hit the buzzer!'}
+					Waiting for moderator to start…
+				</p>
+			{:else if myParticipant?.buzzedIn}
+				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
+					Tap to retract your buzz
+				</p>
+			{:else if gameStore.buzzLimitReached}
+				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em; color:var(--danger);">
+					Buzz limit reached (3/3)
 				</p>
 			{:else}
-				<p style="min-height:1.5em;"></p>
+				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
+					Ready — hit the buzzer!
+				</p>
 			{/if}
 
 			<!-- THE BUZZER -->
-			<button
-				class="buzzer"
-				class:buzzed={myParticipant?.buzzedIn && myParticipant.buzzOrder !== 1}
-				class:buzzed-first={myParticipant?.buzzedIn && myParticipant.buzzOrder === 1}
-				class:waiting={game.status === 'waiting'}
-				onclick={buzz}
-				disabled={!canBuzz || buzzing}
-				aria-label="Buzz in"
-			>
-				<span class="buzzer-icon">
-					{#if game.status === 'waiting'}
-						⏳
-					{:else if myParticipant?.buzzedIn}
-						#{myParticipant.buzzOrder}
-					{:else}
-						🔔
-					{/if}
-				</span>
-			</button>
+			{#if myParticipant?.buzzedIn}
+				<button
+					class="buzzer {myParticipant.buzzOrder === 1 ? 'buzzed-first' : 'buzzed'}"
+					onclick={unbuzz}
+					disabled={!canUnbuzz || unbuzzing}
+					aria-label="Unbuzz"
+				>
+					<span class="buzzer-icon">#{myParticipant.buzzOrder}</span>
+				</button>
+			{:else}
+				<button
+					class="buzzer"
+					class:waiting={game.status === 'waiting'}
+					class:buzz-locked={gameStore.buzzLimitReached && game.status === 'active'}
+					onclick={buzz}
+					disabled={!canBuzz || buzzing}
+					aria-label="Buzz in"
+				>
+					<span class="buzzer-icon">
+						{#if game.status === 'waiting'}
+							⏳
+						{:else if gameStore.buzzLimitReached}
+							🔒
+						{:else}
+							🔔
+						{/if}
+					</span>
+				</button>
+			{/if}
 
 		</div>
 
@@ -213,7 +333,7 @@
 			<div style="width:100%; max-width:480px; padding-bottom:8px;">
 				<div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
 					{#each [...game.participants].sort((a,b) => b.score - a.score) as p, i (p.participantId)}
-						{@const medal = ['🥇','🥈','🥉'][i]}
+						{@const medal = medals[i]}
 						<div style="
 							flex-shrink:0;
 							background:var(--surface);
@@ -231,6 +351,7 @@
 					{/each}
 				</div>
 			</div>
+		{/if}
 		{/if}
 	{/if}
 </main>
@@ -291,6 +412,13 @@
 		animation: none;
 	}
 
+	.buzzer.buzz-locked {
+		background: radial-gradient(circle at 38% 38%, #4b5563, #374151);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+		animation: none;
+		cursor: not-allowed;
+	}
+
 	.buzzer-icon {
 		font-size: min(22vw, 90px);
 		font-weight: 900;
@@ -330,5 +458,138 @@
 	.leave-btn:hover {
 		opacity: 1;
 		color: var(--danger);
+	}
+
+	/* ── Results Screen ─────────────────────────────── */
+	.results-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
+		max-width: 480px;
+		padding: 24px 0;
+	}
+
+	.results-title {
+		font-size: 2rem;
+		font-weight: 900;
+		background: linear-gradient(135deg, #a855f7, #ec4899);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-clip: text;
+		margin: 0;
+	}
+
+	.results-subtitle {
+		font-size: 1rem;
+		color: var(--text-muted);
+		margin: 0 0 8px;
+	}
+
+	.podium {
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		margin: 16px 0;
+	}
+
+	.podium-place {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		flex: 1;
+		max-width: 140px;
+	}
+
+	.podium-medal {
+		font-size: 2.5rem;
+		line-height: 1;
+	}
+
+	.first .podium-medal {
+		font-size: 3rem;
+		filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.5));
+	}
+
+	.podium-name {
+		font-weight: 700;
+		font-size: 0.95rem;
+		text-align: center;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
+	}
+
+	.podium-score {
+		font-size: 0.85rem;
+		color: var(--success);
+		font-weight: 600;
+	}
+
+	.podium-block {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 800;
+		font-size: 1.4rem;
+		color: rgba(255, 255, 255, 0.5);
+		border-radius: 8px 8px 0 0;
+	}
+
+	.first-block {
+		height: 120px;
+		background: linear-gradient(180deg, #a855f7, #7c3aed);
+	}
+
+	.second-block {
+		height: 85px;
+		background: linear-gradient(180deg, #64748b, #475569);
+	}
+
+	.third-block {
+		height: 60px;
+		background: linear-gradient(180deg, #78716c, #57534e);
+	}
+
+	.results-leaderboard {
+		width: 100%;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+
+	.results-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 16px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.results-row:last-child {
+		border-bottom: none;
+	}
+
+	.results-rank {
+		font-weight: 600;
+		color: var(--text-muted);
+		min-width: 2.5rem;
+	}
+
+	.results-name {
+		flex: 1;
+		font-weight: 600;
+	}
+
+	.results-score {
+		font-weight: 700;
+		color: var(--success);
 	}
 </style>

@@ -161,6 +161,33 @@ export async function nextBuzzOrder(gameId: string): Promise<number> {
 	return max + 1;
 }
 
+/** Records an unbuzz: clears the participant's buzz state and re-ranks
+ *  remaining buzzed-in participants.
+ *  Returns the updated buzz list sorted by buzzOrder. */
+export async function recordUnbuzz(
+	gameId: string,
+	participantId: string
+): Promise<Array<{ participantId: string; name: string; buzzOrder: number }>> {
+	await updateParticipant(gameId, participantId, { buzzedIn: false, buzzOrder: 0, buzzedAt: 0 });
+
+	const participants = await getParticipants(gameId);
+	const buzzed = participants
+		.filter((p) => p.buzzedIn)
+		.sort((a, b) => a.buzzedAt - b.buzzedAt);
+
+	await Promise.all(
+		buzzed.map((p, i) => updateParticipant(gameId, p.participantId, { buzzOrder: i + 1 }))
+	);
+
+	return buzzed.map((p, i) => ({
+		participantId: p.participantId,
+		name: p.name,
+		buzzOrder: i + 1
+	}));
+}
+
+export const BUZZ_LIMIT = 3;
+
 /** Records a buzz using a millisecond timestamp and assigns buzz order by
  *  re-ranking all buzzed-in participants by their buzzedAt time.
  *  Returns the assigned buzzOrder (1 = first). */

@@ -33,6 +33,7 @@ export async function connectToGame(
 		'participant-joined',
 		'game-started',
 		'buzzed-in',
+		'unbuzzed',
 		'buzzers-reset',
 		'scores-updated',
 		'game-ended'
