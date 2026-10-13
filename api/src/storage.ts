@@ -3,7 +3,21 @@ import type { TableEntityResult } from '@azure/data-tables';
 
 const CONN = () => process.env.AZURE_STORAGE_CONNECTION_STRING!;
 
-export interface GameEntity {
+export interface BuzzEntry {
+	participantId: string;
+	name: string;
+	buzzOrder: number;
+	buzzedAt: number;
+}
+
+export interface BuzzerState {
+	buzzersExpireAt: number;
+	buzzRound: number;
+	buzzRevision: number;
+	buzzList: BuzzEntry[];
+}
+
+export interface GameEntity extends BuzzerState {
 	gameId: string;
 	gameName: string;
 	joinCode: string;
@@ -44,13 +58,17 @@ export async function ensureTables() {
 	tablesEnsured = true;
 }
 
-export async function createGame(game: GameEntity) {
+export async function createGame(game: Omit<GameEntity, keyof BuzzerState>) {
 	await ensureTables();
 	const client = gameClient();
 	await client.createEntity({
 		partitionKey: 'GAME',
 		rowKey: game.gameId,
-		...game
+		...game,
+		buzzersExpireAt: 0,
+		buzzRound: 0,
+		buzzRevision: 0,
+		buzzList: '[]'
 	});
 	// Write join code lookup: PartitionKey=LOOKUP, RowKey=joinCode
 	await lookupClient().upsertEntity({
@@ -109,13 +127,17 @@ export async function createParticipant(p: ParticipantEntity) {
 	});
 }
 
-export async function getParticipants(gameId: string): Promise<ParticipantEntity[]> {
+export async function getParticipants(
+	gameId: string,
+	game?: GameEntity | null
+): Promise<ParticipantEntity[]> {
+	const state = game === undefined ? await getGame(gameId) : game;
 	const results: ParticipantEntity[] = [];
 	const client = participantClient();
 	for await (const entity of client.listEntities({
 		queryOptions: { filter: odata`PartitionKey eq ${gameId}` }
 	})) {
-		results.push(entityToParticipant(entity));
+		results.push(applyBuzzerState(entityToParticipant(entity), state));
 	}
 	return results;
 }
@@ -126,7 +148,7 @@ export async function getParticipant(
 ): Promise<ParticipantEntity | null> {
 	try {
 		const entity = await participantClient().getEntity(gameId, participantId);
-		return entityToParticipant(entity);
+		return applyBuzzerState(entityToParticipant(entity), await getGame(gameId));
 	} catch {
 		return null;
 	}
@@ -143,74 +165,100 @@ export async function updateParticipant(
 	);
 }
 
-export async function resetAllBuzzers(gameId: string) {
-	const participants = await getParticipants(gameId);
-	await Promise.all(
-		participants.map((p) =>
-			participantClient().updateEntity(
-				{ partitionKey: gameId, rowKey: p.participantId, buzzedIn: false, buzzOrder: 0 },
-				'Merge'
-			)
-		)
-	);
+export const BUZZ_LIMIT = 3;
+export const BUZZ_WINDOW_MS = 10_000;
+
+type BuzzerResult = { state: BuzzerState; error?: never } | { error: string; state?: never };
+
+// Keep the deadline and all three slots on one entity so concurrent requests
+// cannot exceed the limit or restore buzzes cleared by a reset.
+async function changeBuzzers(
+	gameId: string,
+	change: (game: GameEntity) => BuzzerState | string
+): Promise<BuzzerResult> {
+	const client = gameClient();
+	for (let attempt = 0; attempt < 10; attempt++) {
+		const entity = await client.getEntity('GAME', gameId);
+		const next = change(entityToGame(entity));
+		if (typeof next === 'string') return { error: next };
+		try {
+			await client.updateEntity(
+				{
+					partitionKey: 'GAME',
+					rowKey: gameId,
+					buzzersExpireAt: next.buzzersExpireAt,
+					buzzRound: next.buzzRound,
+					buzzRevision: next.buzzRevision,
+					buzzList: JSON.stringify(next.buzzList)
+				},
+				'Merge',
+				{ etag: entity.etag }
+			);
+			return { state: next };
+		} catch (error) {
+			if (
+				typeof error !== 'object' || error === null ||
+				!('statusCode' in error) || error.statusCode !== 412
+			) throw error;
+		}
+	}
+	throw new Error('Could not update buzzers after repeated concurrent changes');
 }
 
-export async function nextBuzzOrder(gameId: string): Promise<number> {
-	const participants = await getParticipants(gameId);
-	const max = participants.reduce((m, p) => Math.max(m, p.buzzOrder), 0);
-	return max + 1;
+export async function resetAllBuzzers(gameId: string, buzzersExpireAt = 0): Promise<BuzzerState> {
+	const result = await changeBuzzers(gameId, (game) => ({
+		buzzersExpireAt,
+		buzzRound: game.buzzRound + 1,
+		buzzRevision: game.buzzRevision + 1,
+		buzzList: []
+	}));
+	if (result.error !== undefined) throw new Error(result.error);
+	return result.state;
 }
 
-/** Records an unbuzz: clears the participant's buzz state and re-ranks
- *  remaining buzzed-in participants.
- *  Returns the updated buzz list sorted by buzzOrder. */
+export async function recordBuzz(
+	gameId: string,
+	participantId: string,
+	name: string,
+	expectedRound: number
+): Promise<BuzzerResult> {
+	return changeBuzzers(gameId, (game) => {
+		if (game.status !== 'active') return 'Game is not active';
+		if (game.buzzRound !== expectedRound) return 'Buzzers were reset; please buzz again';
+		if (!game.buzzersExpireAt) return 'Waiting for moderator to reset buzzers';
+		if (Date.now() >= game.buzzersExpireAt) return 'Buzz window has expired';
+		if (game.buzzList.some((p) => p.participantId === participantId)) return 'Already buzzed in';
+		if (game.buzzList.length >= BUZZ_LIMIT) return 'Buzz limit reached';
+		return {
+			buzzersExpireAt: game.buzzersExpireAt,
+			buzzRound: game.buzzRound,
+			buzzRevision: game.buzzRevision + 1,
+			buzzList: [
+				...game.buzzList,
+				{ participantId, name, buzzOrder: game.buzzList.length + 1, buzzedAt: Date.now() }
+			]
+		};
+	});
+}
+
 export async function recordUnbuzz(
 	gameId: string,
-	participantId: string
-): Promise<Array<{ participantId: string; name: string; buzzOrder: number }>> {
-	await updateParticipant(gameId, participantId, { buzzedIn: false, buzzOrder: 0, buzzedAt: 0 });
-
-	const participants = await getParticipants(gameId);
-	const buzzed = participants
-		.filter((p) => p.buzzedIn)
-		.sort((a, b) => a.buzzedAt - b.buzzedAt);
-
-	await Promise.all(
-		buzzed.map((p, i) => updateParticipant(gameId, p.participantId, { buzzOrder: i + 1 }))
-	);
-
-	return buzzed.map((p, i) => ({
-		participantId: p.participantId,
-		name: p.name,
-		buzzOrder: i + 1
-	}));
-}
-
-export const BUZZ_LIMIT = 3;
-
-/** Records a buzz using a millisecond timestamp and assigns buzz order by
- *  re-ranking all buzzed-in participants by their buzzedAt time.
- *  Returns the assigned buzzOrder (1 = first). */
-export async function recordBuzz(gameId: string, participantId: string): Promise<number> {
-	const buzzedAt = Date.now();
-	await updateParticipant(gameId, participantId, { buzzedIn: true, buzzedAt });
-
-	// Re-read all buzzed participants and assign deterministic order by time
-	const participants = await getParticipants(gameId);
-	const buzzed = participants
-		.filter((p) => p.buzzedIn)
-		.sort((a, b) => a.buzzedAt - b.buzzedAt);
-
-	const myRank = buzzed.findIndex((p) => p.participantId === participantId) + 1;
-
-	// Update buzzOrder for all buzzed players (handles any reordering edge cases)
-	await Promise.all(
-		buzzed.map((p, i) =>
-			updateParticipant(gameId, p.participantId, { buzzOrder: i + 1 })
-		)
-	);
-
-	return myRank;
+	participantId: string,
+	expectedRound: number
+): Promise<BuzzerResult> {
+	return changeBuzzers(gameId, (game) => {
+		if (game.status !== 'active') return 'Game is not active';
+		if (game.buzzRound !== expectedRound) return 'Buzzers were reset';
+		if (!game.buzzList.some((p) => p.participantId === participantId)) return 'Not buzzed in';
+		return {
+			buzzersExpireAt: game.buzzersExpireAt,
+			buzzRound: game.buzzRound,
+			buzzRevision: game.buzzRevision + 1,
+			buzzList: game.buzzList
+				.filter((p) => p.participantId !== participantId)
+				.map((p, i) => ({ ...p, buzzOrder: i + 1 }))
+		};
+	});
 }
 
 export async function deleteGameData(gameId: string, joinCode: string): Promise<void> {
@@ -245,8 +293,17 @@ function entityToGame(e: AzureEntity): GameEntity {
 		joinCode: e.joinCode as string,
 		status: e.status as GameEntity['status'],
 		moderatorId: e.moderatorId as string,
-		createdAt: e.createdAt as string
+		createdAt: e.createdAt as string,
+		buzzersExpireAt: Number(e.buzzersExpireAt ?? 0),
+		buzzRound: Number(e.buzzRound ?? 0),
+		buzzRevision: Number(e.buzzRevision ?? 0),
+		buzzList: JSON.parse(String(e.buzzList ?? '[]')) as BuzzEntry[]
 	};
+}
+
+function applyBuzzerState(p: ParticipantEntity, game: GameEntity | null): ParticipantEntity {
+	const buzz = game?.buzzList.find((b) => b.participantId === p.participantId);
+	return { ...p, buzzedIn: !!buzz, buzzOrder: buzz?.buzzOrder ?? 0, buzzedAt: buzz?.buzzedAt ?? 0 };
 }
 
 function entityToParticipant(e: AzureEntity): ParticipantEntity {

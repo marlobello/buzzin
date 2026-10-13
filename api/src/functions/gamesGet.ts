@@ -9,9 +9,9 @@ app.http('gamesGet', {
 		const gameId = request.params.gameId;
 		if (!gameId) return { status: 400, jsonBody: { error: 'gameId is required' } };
 
-		const [game, participants] = await Promise.all([getGame(gameId), getParticipants(gameId)]);
-
+		const game = await getGame(gameId);
 		if (!game) return { status: 404, jsonBody: { error: 'Game not found' } };
+		const participants = await getParticipants(gameId, game);
 
 		return {
 			jsonBody: {
@@ -19,6 +19,8 @@ app.http('gamesGet', {
 				gameName: game.gameName,
 				joinCode: game.joinCode,
 				status: game.status,
+				buzzersExpireAt: game.buzzersExpireAt,
+				buzzRevision: game.buzzRevision,
 				participants
 			}
 		};

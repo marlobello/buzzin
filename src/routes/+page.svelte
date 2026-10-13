@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 
 	let mode: 'home' | 'create' | 'join' = $state('home');
 	let gameName = $state('');
@@ -7,6 +8,14 @@
 	let joinCode = $state('');
 	let loading = $state(false);
 	let error = $state('');
+
+	$effect(() => {
+		const code = page.url.searchParams.get('joinCode');
+		if (code) {
+			joinCode = code.trim().toUpperCase();
+			mode = 'join';
+		}
+	});
 
 	async function createGame() {		if (!gameName.trim()) return;
 		loading = true;

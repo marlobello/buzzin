@@ -11,6 +11,7 @@
 	let participantId = $state('');
 	let loading = $state(true);
 	let error = $state('');
+	let buzzError = $state('');
 	let buzzing = $state(false);
 	let unbuzzing = $state(false);
 	let prevScore: number | null = null;
@@ -30,7 +31,7 @@
 		gameStore.current?.status === 'active' &&
 			myParticipant != null &&
 			!myParticipant.buzzedIn &&
-			!gameStore.buzzLimitReached
+			!gameStore.buzzersDisabled
 	);
 
 	let canUnbuzz = $derived(
@@ -112,6 +113,7 @@
 
 			connectToGame(id, participantId, (target, args) => {
 				gameStore.handleMessage(target, args);
+				if (target === 'buzzers-reset') buzzError = '';
 			}).catch((e) => {
 				console.warn('SignalR connection failed:', e);
 			});
@@ -124,16 +126,22 @@
 	});
 
 	async function buzz() {
-		if (!canBuzz || buzzing) return;
+		if (!canBuzz || buzzing || Date.now() >= (gameStore.current?.buzzersExpireAt ?? 0)) return;
 		buzzing = true;
+		buzzError = '';
 		try {
-			await fetch(`/api/games/${gameId}/buzz`, {
+			const res = await fetch(`/api/games/${gameId}/buzz`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ participantId })
 			});
-		} catch {
-			// Silently ignore — UI will update via SignalR
+			if (!res.ok) {
+				const data = await res.json();
+				buzzError = data.error ?? 'Could not buzz in.';
+			}
+		} catch (e) {
+			console.warn('Buzz request failed:', e);
+			buzzError = 'Could not buzz in. Please try again.';
 		} finally {
 			buzzing = false;
 		}
@@ -142,14 +150,20 @@
 	async function unbuzz() {
 		if (!canUnbuzz || unbuzzing) return;
 		unbuzzing = true;
+		buzzError = '';
 		try {
-			await fetch(`/api/games/${gameId}/unbuzz`, {
+			const res = await fetch(`/api/games/${gameId}/unbuzz`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ participantId })
 			});
-		} catch {
-			// Silently ignore — UI will update via SignalR
+			if (!res.ok) {
+				const data = await res.json();
+				buzzError = data.error ?? 'Could not retract buzz.';
+			}
+		} catch (e) {
+			console.warn('Unbuzz request failed:', e);
+			buzzError = 'Could not retract buzz. Please try again.';
 		} finally {
 			unbuzzing = false;
 		}
@@ -289,10 +303,17 @@
 				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em; color:var(--danger);">
 					Buzz limit reached (3/3)
 				</p>
+			{:else if gameStore.buzzWindowExpired}
+				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
+					{game.buzzersExpireAt ? 'Time is up — waiting for reset' : 'Waiting for moderator to reset buzzers'}
+				</p>
 			{:else}
 				<p class="text-muted animate-in" style="font-size:1rem; text-align:center; min-height:1.5em;">
 					Ready — hit the buzzer!
 				</p>
+			{/if}
+			{#if buzzError}
+				<p role="alert" style="color:var(--danger); text-align:center;">{buzzError}</p>
 			{/if}
 
 			<!-- THE BUZZER -->
@@ -309,7 +330,7 @@
 				<button
 					class="buzzer"
 					class:waiting={game.status === 'waiting'}
-					class:buzz-locked={gameStore.buzzLimitReached && game.status === 'active'}
+					class:buzz-locked={gameStore.buzzersDisabled && game.status === 'active'}
 					onclick={buzz}
 					disabled={!canBuzz || buzzing}
 					aria-label="Buzz in"
@@ -317,7 +338,7 @@
 					<span class="buzzer-icon">
 						{#if game.status === 'waiting'}
 							⏳
-						{:else if gameStore.buzzLimitReached}
+						{:else if gameStore.buzzersDisabled}
 							🔒
 						{:else}
 							🔔

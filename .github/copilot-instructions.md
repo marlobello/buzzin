@@ -78,10 +78,13 @@ All routes are prefixed `/api/` by the Static Web Apps router.
 All messages are broadcast to the SignalR group `game-{gameId}`.
 
 - `participant-joined` → `Participant` object
-- `game-started` → (no args)
-- `buzzed-in` → `{ participantId, name, buzzOrder }`
-- `buzzers-reset` → (no args)
+- `game-started` → buzzer snapshot (disabled until reset)
+- `buzzed-in` → `{ participantId, name, buzzOrder, ...buzzerSnapshot }`
+- `unbuzzed` → `{ participantId, ...buzzerSnapshot }`
+- `buzzers-reset` → buzzer snapshot with a fresh 10-second deadline
 - `scores-updated` → `Array<{ participantId, name, score }>`
+
+Buzzer snapshots contain `{ buzzersExpireAt, buzzRound, buzzRevision, buzzList }`. Buzz state is stored atomically on the Games entity; participant buzz fields are projected from that snapshot. ETag-conditional updates enforce the 3-player limit under concurrent requests; the round number prevents in-flight requests from crossing resets. Retraction frees a slot only while the 10-second window is open.
 
 ## Key Conventions
 
@@ -106,4 +109,3 @@ All messages are broadcast to the SignalR group `game-{gameId}`.
 |---|---|
 | `AZURE_CREDENTIALS` | `az ad sp create-for-rbac --role Contributor --scopes /subscriptions/{id}` → JSON output |
 | `AZURE_STATIC_WEB_APPS_API_TOKEN` | From first Bicep deployment output `swaDeploymentToken` |
-

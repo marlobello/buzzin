@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGame, getParticipant, getParticipants, recordBuzz, BUZZ_LIMIT } from '../storage';
+import { getGame, getParticipant, recordBuzz } from '../storage';
 import { broadcastToGame } from '../signalr';
 
 app.http('gamesBuzz', {
@@ -28,19 +28,18 @@ app.http('gamesBuzz', {
 			return { status: 409, jsonBody: { error: 'Already buzzed in' } };
 		}
 
-		const allParticipants = await getParticipants(gameId);
-		const buzzedCount = allParticipants.filter((p) => p.buzzedIn).length;
-		if (buzzedCount >= BUZZ_LIMIT) {
-			return { status: 409, jsonBody: { error: 'Buzz limit reached' } };
+		const result = await recordBuzz(gameId, body.participantId, participant.name, game.buzzRound);
+		if (result.error !== undefined) {
+			return { status: 409, jsonBody: { error: result.error } };
 		}
-
-		const buzzOrder = await recordBuzz(gameId, body.participantId);
+		const buzzOrder = result.state.buzzList.find((p) => p.participantId === body.participantId)!.buzzOrder;
 
 		await broadcastToGame(gameId, 'buzzed-in', [
 			{
 				participantId: body.participantId,
 				name: participant.name,
-				buzzOrder
+				buzzOrder,
+				...result.state
 			}
 		]);
 

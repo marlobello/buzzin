@@ -1,5 +1,5 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getGame, resetAllBuzzers } from '../storage';
+import { getGame, resetAllBuzzers, BUZZ_WINDOW_MS } from '../storage';
 import { broadcastToGame } from '../signalr';
 
 app.http('gamesReset', {
@@ -16,9 +16,12 @@ app.http('gamesReset', {
 			return { status: 403, jsonBody: { error: 'Not authorized' } };
 		}
 
-		await resetAllBuzzers(gameId);
-		await broadcastToGame(gameId, 'buzzers-reset', []);
+		if (game.status !== 'active') {
+			return { status: 409, jsonBody: { error: 'Game is not active' } };
+		}
+		const state = await resetAllBuzzers(gameId, Date.now() + BUZZ_WINDOW_MS);
+		await broadcastToGame(gameId, 'buzzers-reset', [state]);
 
-		return { jsonBody: { ok: true } };
+		return { jsonBody: { ok: true, ...state } };
 	}
 });

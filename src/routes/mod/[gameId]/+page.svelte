@@ -9,7 +9,13 @@
 	let moderatorId = $state('');
 	let loading = $state(true);
 	let error = $state('');
-	let copied = $state(false);
+	let copied = $state<'code' | 'link' | null>(null);
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+	const joinUrl = $derived(
+		gameStore.current
+			? `${page.url.origin}/?joinCode=${encodeURIComponent(gameStore.current.joinCode)}`
+			: ''
+	);
 	let actionLoading = $state<string | null>(null);
 	let awardedThisRound = $state(new Set<string>());
 
@@ -169,10 +175,19 @@
 		await goto('/');
 	}
 
-	function copyJoinCode() {
-		if (gameStore.current) navigator.clipboard.writeText(gameStore.current.joinCode).catch(() => {});
-		copied = true;
-		setTimeout(() => (copied = false), 2000);
+	async function copyJoinDetails(kind: 'code' | 'link') {
+		const value = kind === 'link' ? joinUrl : gameStore.current?.joinCode;
+		if (!value) return;
+		clearTimeout(copyTimer);
+		copied = null;
+		try {
+			await navigator.clipboard.writeText(value);
+			copied = kind;
+			copyTimer = setTimeout(() => (copied = null), 2000);
+		} catch (e) {
+			console.warn('Could not copy join details:', e);
+			error = 'Could not copy. Please select and copy the code or link manually.';
+		}
 	}
 
 	const sortedByScore = $derived(
@@ -303,10 +318,21 @@
 						<div style="font-size:2rem; font-weight:800; letter-spacing:0.2em; color:#a855f7;">{game.joinCode}</div>
 						<div class="text-muted text-sm">Game: <strong style="color:var(--text);">{game.gameName}</strong></div>
 					</div>
-					<button class="btn btn-secondary btn-sm" style="width:auto;" onclick={copyJoinCode}>
-						{copied ? '✓ Copied' : '📋 Copy'}
+					<button class="btn btn-secondary btn-sm" style="width:auto;" onclick={() => copyJoinDetails('code')}>
+						{copied === 'code' ? '✓ Copied' : '📋 Copy'}
 					</button>
 				</div>
+				<div class="field" style="margin-top:16px;">
+					<label for="join-link">Join Link</label>
+					<input id="join-link" class="input" type="text" value={joinUrl} readonly />
+				</div>
+				<button
+					class="btn btn-secondary btn-sm"
+					style="margin-top:8px;"
+					onclick={() => copyJoinDetails('link')}
+				>
+					{copied === 'link' ? '✓ Link Copied' : '📋 Copy Join Link'}
+				</button>
 			</div>
 
 			{#if error}
@@ -333,6 +359,16 @@
 					</button>
 				{/if}
 			</div>
+
+			{#if game.status === 'active'}
+				<p class="text-muted text-sm center" role="status">
+					{gameStore.buzzLimitReached
+						? 'Buzzers locked - 3 players buzzed in.'
+						: gameStore.buzzWindowExpired
+							? 'Buzzers disabled - press Reset Buzzers to open a 10-second window.'
+							: 'Buzzers open - up to 3 players can buzz within 10 seconds of reset.'}
+				</p>
+			{/if}
 
 			<!-- Buzz order — only shown when someone has buzzed -->
 			{#if buzzes.length > 0}

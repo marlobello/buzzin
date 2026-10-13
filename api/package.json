@@ -4,6 +4,7 @@
   "description": "Buzzin API – Azure Functions v4",
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node --test test/*.test.cjs",
     "watch": "tsc -w",
     "prestart": "npm run build",
     "start": "func start"

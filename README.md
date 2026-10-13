@@ -73,6 +73,10 @@ npm run dev
 
 The SvelteKit dev server proxies `/api/*` requests to the Functions host automatically.
 
+### Validation
+
+Run `npm test` for buzzer-window, concurrent-buzz, retraction, and client-state tests (no Azure connection required). Run `npm run check` and `npm run build` to validate the frontend.
+
 ---
 
 ## Deploying to Azure
@@ -97,20 +101,20 @@ Subsequent deploys run automatically via the GitHub Actions workflow on push to 
 
 1. Open the app and click **Create Game**.
 2. Enter a game name — you'll land on the moderator dashboard.
-3. Share the **4-letter join code** displayed on screen with your players.
+3. Share the **6-letter join code** or click **Copy Join Link** on the dashboard. The direct link opens the join form with the code already filled in.
 4. Once players have joined, click **Start Game**.
-5. Read a trivia question out loud. The first player to tap their buzzer appears at the top of the list.
+5. Buzzers start disabled. Read a trivia question out loud, then click **Reset Buzzers** to open a **10-second** buzz-in window. The first player to tap their buzzer appears at the top of the list.
 6. If they answer correctly, click **+1** next to their name to award a point (players hear a coin sound and see confetti).
-7. Click **Reset Buzzers** to clear buzz-ins and start the next question.
+7. Click **Reset Buzzers** to clear buzz-ins and open a fresh 10-second window for the next question. Buzzers lock when **3 players** have buzzed or the window expires, whichever happens first. Retracting a buzz frees a slot only before the window expires.
 8. Repeat until you're done, then click **End Game**.
 
 > Your moderator session is saved in your browser's `localStorage`. Refreshing the page keeps you in control.
 
 ### As a Player
 
-1. Open the app on your phone or browser and click **Join Game**.
-2. Enter the **4-letter join code** and your name.
-3. Wait for the moderator to start the game — the big button will become active.
+1. Open the moderator's **join link**, or open the app and click **Join Game**.
+2. Enter your name. If you didn't use a join link, also enter the **6-letter join code**.
+3. Wait for the moderator to start the game and click **Reset Buzzers** — the big button will become active for up to 10 seconds.
 4. When a question is asked, **tap the button as fast as possible** to buzz in.
    - 🟢 **Green** — you were first!
    - 🟠 **Orange** — someone beat you.

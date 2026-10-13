@@ -20,8 +20,8 @@ app.http('gamesStart', {
 		}
 
 		await updateGameStatus(gameId, 'active');
-		await resetAllBuzzers(gameId);
-		await broadcastToGame(gameId, 'game-started', []);
+		const state = await resetAllBuzzers(gameId);
+		await broadcastToGame(gameId, 'game-started', [state]);
 
 		return { jsonBody: { ok: true } };
 	}

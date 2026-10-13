@@ -11,17 +11,54 @@ export interface GameState {
 	gameName: string;
 	joinCode: string;
 	status: 'waiting' | 'active' | 'ended';
+	buzzersExpireAt: number;
+	buzzRevision: number;
 	participants: Participant[];
 	finalScores?: Array<{ participantId: string; name: string; score: number }>;
 }
 
 const BUZZ_LIMIT = 3;
 
+interface BuzzerState {
+	buzzersExpireAt: number;
+	buzzRevision: number;
+	buzzList: Array<{ participantId: string; buzzOrder: number }>;
+}
+
 class GameStore {
 	current = $state<GameState | null>(null);
+	buzzWindowExpired = $state(true);
+	private expiryTimer: ReturnType<typeof setTimeout> | undefined;
 
 	set(value: GameState | null) {
 		this.current = value;
+		this.scheduleExpiry();
+	}
+
+	private scheduleExpiry() {
+		clearTimeout(this.expiryTimer);
+		const remaining = (this.current?.buzzersExpireAt ?? 0) - Date.now();
+		this.buzzWindowExpired = remaining <= 0;
+		if (remaining > 0 && this.current?.status === 'active') {
+			this.expiryTimer = setTimeout(() => {
+				this.buzzWindowExpired = true;
+			}, remaining);
+		}
+	}
+
+	private applyBuzzerState(state: BuzzerState) {
+		const game = this.current;
+		if (!game || state.buzzRevision < game.buzzRevision) return;
+		this.current = {
+			...game,
+			buzzersExpireAt: state.buzzersExpireAt,
+			buzzRevision: state.buzzRevision,
+			participants: game.participants.map((p) => {
+				const buzz = state.buzzList.find((b) => b.participantId === p.participantId);
+				return { ...p, buzzedIn: !!buzz, buzzOrder: buzz?.buzzOrder ?? 0 };
+			})
+		};
+		this.scheduleExpiry();
 	}
 
 	get buzzOrder(): Participant[] {
@@ -34,6 +71,10 @@ class GameStore {
 
 	get buzzLimitReached(): boolean {
 		return this.buzzOrder.length >= BUZZ_LIMIT;
+	}
+
+	get buzzersDisabled(): boolean {
+		return this.buzzWindowExpired || this.buzzLimitReached;
 	}
 
 	handleMessage(target: string, args: unknown[]) {
@@ -50,48 +91,19 @@ class GameStore {
 				break;
 			}
 			case 'game-started': {
+				if (s.status === 'ended') break;
 				this.current = {
 					...s,
-					status: 'active',
-					participants: s.participants.map((p) => ({ ...p, buzzedIn: false, buzzOrder: 0 }))
+					status: 'active'
 				};
+				this.applyBuzzerState(payload[0] as BuzzerState);
+				this.scheduleExpiry();
 				break;
 			}
-			case 'buzzed-in': {
-				const { participantId, buzzOrder } = payload[0] as {
-					participantId: string;
-					buzzOrder: number;
-				};
-				this.current = {
-					...s,
-					participants: s.participants.map((p) =>
-						p.participantId === participantId ? { ...p, buzzedIn: true, buzzOrder } : p
-					)
-				};
-				break;
-			}
-			case 'unbuzzed': {
-				const { participantId, buzzList } = payload[0] as {
-					participantId: string;
-					buzzList: Array<{ participantId: string; buzzOrder: number }>;
-				};
-				this.current = {
-					...s,
-					participants: s.participants.map((p) => {
-						if (p.participantId === participantId) {
-							return { ...p, buzzedIn: false, buzzOrder: 0 };
-						}
-						const updated = buzzList.find((b) => b.participantId === p.participantId);
-						return updated ? { ...p, buzzOrder: updated.buzzOrder } : p;
-					})
-				};
-				break;
-			}
+			case 'buzzed-in':
+			case 'unbuzzed':
 			case 'buzzers-reset': {
-				this.current = {
-					...s,
-					participants: s.participants.map((p) => ({ ...p, buzzedIn: false, buzzOrder: 0 }))
-				};
+				this.applyBuzzerState(payload[0] as BuzzerState);
 				break;
 			}
 			case 'scores-updated': {
@@ -114,6 +126,7 @@ class GameStore {
 					status: 'ended',
 					finalScores: data?.finalScores
 				};
+				clearTimeout(this.expiryTimer);
 				break;
 			}
 		}

@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "node --test test/*.test.mjs && npm --prefix api test",
     "api:build": "cd api && npm run build",
     "api:start": "cd api && func start"
   },

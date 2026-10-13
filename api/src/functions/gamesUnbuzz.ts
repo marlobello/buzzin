@@ -28,12 +28,15 @@ app.http('gamesUnbuzz', {
 			return { status: 409, jsonBody: { error: 'Not buzzed in' } };
 		}
 
-		const updatedBuzzList = await recordUnbuzz(gameId, body.participantId);
+		const result = await recordUnbuzz(gameId, body.participantId, game.buzzRound);
+		if (result.error !== undefined) {
+			return { status: 409, jsonBody: { error: result.error } };
+		}
 
 		await broadcastToGame(gameId, 'unbuzzed', [
 			{
 				participantId: body.participantId,
-				buzzList: updatedBuzzList
+				...result.state
 			}
 		]);
 
