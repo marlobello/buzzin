@@ -101,7 +101,7 @@ Subsequent deploys run automatically via the GitHub Actions workflow on push to 
 
 1. Open the app and click **Create Game**.
 2. Enter a game name — you'll land on the moderator dashboard.
-3. Share the **6-letter join code** or click **Copy Join Link** on the dashboard. The direct link opens the join form with the code already filled in.
+3. In the dashboard's **Invite players** card, share the **6-letter join code** or click **Copy link**. The direct link opens the join form with the code already filled in.
 4. Once players have joined, click **Start Game**.
 5. Buzzers start disabled. Read a trivia question out loud, then click **Reset Buzzers** to open a **10-second** buzz-in window. The first player to tap their buzzer appears at the top of the list.
 6. If they answer correctly, click **+1** next to their name to award a point (players hear a coin sound and see confetti).

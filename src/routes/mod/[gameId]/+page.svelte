@@ -310,30 +310,59 @@
 				</button>
 			</div>
 
-			<!-- Join code -->
-			<div class="card animate-in" style="padding: 16px;">
-				<div style="display:flex; align-items:center; justify-content:space-between;">
-					<div>
-						<div class="text-muted text-sm" style="margin-bottom:2px;">Join Code</div>
-						<div style="font-size:2rem; font-weight:800; letter-spacing:0.2em; color:#a855f7;">{game.joinCode}</div>
-						<div class="text-muted text-sm">Game: <strong style="color:var(--text);">{game.gameName}</strong></div>
+			<section class="card invite-card animate-in" aria-labelledby="invite-heading">
+				<div class="invite-heading">
+					<div class="invite-icon" aria-hidden="true">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+							<circle cx="9" cy="7" r="4" />
+							<path d="M20 8v6M17 11h6" />
+						</svg>
 					</div>
-					<button class="btn btn-secondary btn-sm" style="width:auto;" onclick={() => copyJoinDetails('code')}>
-						{copied === 'code' ? '✓ Copied' : '📋 Copy'}
-					</button>
+					<div>
+						<h2 id="invite-heading">Invite players</h2>
+						<p class="text-muted text-sm">Share the code or send a direct link.</p>
+					</div>
 				</div>
-				<div class="field" style="margin-top:16px;">
-					<label for="join-link">Join Link</label>
-					<input id="join-link" class="input" type="text" value={joinUrl} readonly />
+
+				<div class="invite-code">
+					<span id="join-code-label" class="invite-label">Join code</span>
+					<div class="invite-row">
+						<code class="invite-code-value" aria-labelledby="join-code-label">{game.joinCode}</code>
+						<button
+							class="btn btn-secondary btn-sm invite-copy"
+							onclick={() => copyJoinDetails('code')}
+							aria-label="Copy join code"
+						>
+							{copied === 'code' ? '✓ Copied' : 'Copy code'}
+						</button>
+					</div>
 				</div>
-				<button
-					class="btn btn-secondary btn-sm"
-					style="margin-top:8px;"
-					onclick={() => copyJoinDetails('link')}
-				>
-					{copied === 'link' ? '✓ Link Copied' : '📋 Copy Join Link'}
-				</button>
-			</div>
+
+				<div class="invite-link">
+					<label for="join-link" class="invite-label">Join link</label>
+					<div class="invite-row">
+						<input
+							id="join-link"
+							class="input invite-link-value"
+							type="text"
+							value={joinUrl}
+							readonly
+							onfocus={(event) => event.currentTarget.select()}
+						/>
+						<button
+							class="btn btn-secondary btn-sm invite-copy"
+							onclick={() => copyJoinDetails('link')}
+							aria-label="Copy join link"
+						>
+							{copied === 'link' ? '✓ Copied' : 'Copy link'}
+						</button>
+					</div>
+				</div>
+				<span class="invite-copy-status" role="status">
+					{copied === 'code' ? 'Join code copied.' : copied === 'link' ? 'Join link copied.' : ''}
+				</span>
+			</section>
 
 			{#if error}
 				<p class="text-sm" style="color:var(--danger); padding: 0 4px;">{error}</p>
@@ -447,6 +476,105 @@
 </main>
 
 <style>
+	.invite-card {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		padding: 20px;
+		background:
+			linear-gradient(135deg, rgba(124, 58, 237, 0.08), transparent 65%),
+			var(--surface);
+	}
+
+	.invite-heading {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.invite-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 40px;
+		height: 40px;
+		border-radius: 12px;
+		background: var(--accent-glow);
+		color: #c4b5fd;
+	}
+
+	.invite-heading h2 {
+		margin-bottom: 2px;
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--text);
+		letter-spacing: -0.01em;
+		text-transform: none;
+	}
+
+	.invite-label {
+		display: block;
+		margin-bottom: 8px;
+		font-size: 0.7rem;
+		font-weight: 600;
+		color: var(--text-muted);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.invite-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.invite-code-value {
+		flex: 1;
+		min-width: 0;
+		font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+		font-size: clamp(1.75rem, 7vw, 2.25rem);
+		font-weight: 800;
+		line-height: 1.2;
+		letter-spacing: 0.12em;
+		color: #c4b5fd;
+		user-select: all;
+	}
+
+	.invite-link {
+		padding-top: 20px;
+		border-top: 1px solid var(--border);
+	}
+
+	.invite-link-value {
+		flex: 1;
+		min-width: 0;
+		padding: 12px;
+		font-size: 0.8rem;
+		text-overflow: ellipsis;
+	}
+
+	.invite-copy {
+		flex: 0 0 104px;
+		width: auto;
+		min-height: 44px;
+		padding: 10px 12px;
+	}
+
+	.invite-copy:focus-visible {
+		outline: 2px solid #c4b5fd;
+		outline-offset: 3px;
+	}
+
+	.invite-copy-status {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
 	.results-title {
 		font-size: 2rem;
 		font-weight: 900;
