@@ -75,7 +75,7 @@ The SvelteKit dev server proxies `/api/*` requests to the Functions host automat
 
 ### Validation
 
-Run `npm test` for buzzer-window, concurrent-buzz, retraction, and client-state tests (no Azure connection required). Run `npm run check` and `npm run build` to validate the frontend.
+Run `npm test` for buzzer-window, concurrent-buzz, retraction, client-state, and tie-ranking tests (no Azure connection required). Run `npm run check` and `npm run build` to validate the frontend.
 
 ---
 
@@ -108,6 +108,8 @@ Subsequent deploys run automatically via the GitHub Actions workflow on push to 
 7. Click **Reset Buzzers** to clear buzz-ins and open a fresh 10-second window for the next question. Buzzers lock when **3 players** have buzzed or the window expires, whichever happens first. Retracting a buzz frees a slot only before the window expires.
 8. Repeat until you're done, then click **End Game**.
 
+Final standings use shared rankings for equal scores: two players tied for first both receive gold and 1st place, and the next player is 3rd. Ties for other places follow the same rule; everyone tied for a top-three place appears on the podium.
+
 > Your moderator session is saved in your browser's `localStorage`. Refreshing the page keeps you in control.
 
 ### As a Player
@@ -134,6 +136,8 @@ src/routes/
 src/lib/
   signalr.ts                # SignalR client connection
   sounds.ts                 # Web Audio API sound effects
+  rankings.ts               # Shared competition rankings for tied scores
+  FinalStandings.svelte     # Tie-aware podium and final leaderboard
   stores/game.svelte.ts     # Reactive game state store
 
 api/src/

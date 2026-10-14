@@ -4,6 +4,8 @@
 	import { gameStore } from '$lib/stores/game.svelte';
 	import { connectToGame, disconnect } from '$lib/signalr';
 	import { playBuzzSound, playCoinSound, playRemoveSound } from '$lib/sounds';
+	import { rankScores, formatRank } from '$lib/rankings';
+	import FinalStandings from '$lib/FinalStandings.svelte';
 
 	const gameId = $derived(page.params.gameId);
 	let moderatorId = $state('');
@@ -191,24 +193,17 @@
 	}
 
 	const sortedByScore = $derived(
-		gameStore.current
-			? [...gameStore.current.participants].sort((a, b) => b.score - a.score)
-			: []
+		rankScores(gameStore.current?.participants ?? [])
 	);
 
 	let finalScores = $derived(
-		gameStore.current?.finalScores ??
-			(gameStore.current
-				? [...gameStore.current.participants]
-						.map((p) => ({ participantId: p.participantId, name: p.name, score: p.score }))
-						.sort((a, b) => b.score - a.score)
-				: [])
+		rankScores(gameStore.current?.finalScores ?? gameStore.current?.participants ?? [])
 	);
 
 	const medals = ['🥇', '🥈', '🥉'];
 
-	function rankLabel(i: number): string {
-		return medals[i] ?? `${i + 1}th`;
+	function rankLabel(rank: number): string {
+		return medals[rank - 1] ?? formatRank(rank);
 	}
 </script>
 
@@ -238,48 +233,7 @@
 				<h1 class="results-title">🎉 Game Over!</h1>
 				<p class="text-muted" style="margin:0;">{game.gameName}</p>
 
-				<!-- Podium -->
-				{#if finalScores.length > 0}
-					<div class="podium">
-						{#if finalScores[1]}
-							<div class="podium-place second animate-in">
-								<div class="podium-medal">{medals[1]}</div>
-								<div class="podium-name">{finalScores[1].name}</div>
-								<div class="podium-score">{finalScores[1].score} pts</div>
-								<div class="podium-block second-block">2</div>
-							</div>
-						{/if}
-						{#if finalScores[0]}
-							<div class="podium-place first animate-in">
-								<div class="podium-medal">{medals[0]}</div>
-								<div class="podium-name">{finalScores[0].name}</div>
-								<div class="podium-score">{finalScores[0].score} pts</div>
-								<div class="podium-block first-block">1</div>
-							</div>
-						{/if}
-						{#if finalScores[2]}
-							<div class="podium-place third animate-in">
-								<div class="podium-medal">{medals[2]}</div>
-								<div class="podium-name">{finalScores[2].name}</div>
-								<div class="podium-score">{finalScores[2].score} pts</div>
-								<div class="podium-block third-block">3</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				<!-- Full leaderboard -->
-				{#if finalScores.length > 3}
-					<div class="results-leaderboard" style="width:100%;">
-						{#each finalScores.slice(3) as p, i (p.participantId)}
-							<div class="results-row">
-								<span class="results-rank">{i + 4}th</span>
-								<span class="results-name">{p.name}</span>
-								<span class="results-score">{p.score} pts</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
+				<FinalStandings scores={finalScores} />
 
 				<button class="btn btn-secondary" style="max-width:300px; width:100%;" onclick={deleteAndLeave}>
 					🗑️ Delete Game & Exit
@@ -437,9 +391,9 @@
 					</p>
 				{:else}
 					<div class="stack">
-						{#each sortedByScore as p, i (p.participantId)}
+						{#each sortedByScore as p (p.participantId)}
 							<div class="score-item animate-in">
-								<span style="font-size:1.1rem; min-width:2rem;">{rankLabel(i)}</span>
+								<span style="font-size:1.1rem; min-width:2rem;">{rankLabel(p.rank)}</span>
 								<span class="score-name">{p.name}</span>
 								<div style="display:flex; align-items:center; gap:8px;">
 									<button
@@ -583,111 +537,6 @@
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
 		margin: 0;
-	}
-
-	.podium {
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		gap: 8px;
-		width: 100%;
-		margin: 16px 0;
-	}
-
-	.podium-place {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		flex: 1;
-		max-width: 140px;
-	}
-
-	.podium-medal {
-		font-size: 2.5rem;
-		line-height: 1;
-	}
-
-	.first .podium-medal {
-		font-size: 3rem;
-		filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.5));
-	}
-
-	.podium-name {
-		font-weight: 700;
-		font-size: 0.95rem;
-		text-align: center;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: 100%;
-	}
-
-	.podium-score {
-		font-size: 0.85rem;
-		color: var(--success);
-		font-weight: 600;
-	}
-
-	.podium-block {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 800;
-		font-size: 1.4rem;
-		color: rgba(255, 255, 255, 0.5);
-		border-radius: 8px 8px 0 0;
-	}
-
-	.first-block {
-		height: 120px;
-		background: linear-gradient(180deg, #a855f7, #7c3aed);
-	}
-
-	.second-block {
-		height: 85px;
-		background: linear-gradient(180deg, #64748b, #475569);
-	}
-
-	.third-block {
-		height: 60px;
-		background: linear-gradient(180deg, #78716c, #57534e);
-	}
-
-	.results-leaderboard {
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		overflow: hidden;
-	}
-
-	.results-row {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 16px;
-		border-bottom: 1px solid var(--border);
-	}
-
-	.results-row:last-child {
-		border-bottom: none;
-	}
-
-	.results-rank {
-		font-weight: 600;
-		color: var(--text-muted);
-		min-width: 2.5rem;
-	}
-
-	.results-name {
-		flex: 1;
-		font-weight: 600;
-	}
-
-	.results-score {
-		font-weight: 700;
-		color: var(--success);
 	}
 
 	.badge-warning {

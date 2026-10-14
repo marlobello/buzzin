@@ -5,6 +5,8 @@
 	import { gameStore } from '$lib/stores/game.svelte';
 	import { connectToGame, disconnect } from '$lib/signalr';
 	import { playBuzzSound, playCoinSound, playRemoveSound } from '$lib/sounds';
+	import { rankScores, formatRank } from '$lib/rankings';
+	import FinalStandings from '$lib/FinalStandings.svelte';
 	import confetti from 'canvas-confetti';
 
 	const gameId = $derived(page.params.gameId);
@@ -40,13 +42,9 @@
 
 	// Final scores for the results screen
 	let finalScores = $derived(
-		gameStore.current?.finalScores ??
-			(gameStore.current
-				? [...gameStore.current.participants]
-						.map((p) => ({ participantId: p.participantId, name: p.name, score: p.score }))
-						.sort((a, b) => b.score - a.score)
-				: [])
+		rankScores(gameStore.current?.finalScores ?? gameStore.current?.participants ?? [])
 	);
+	const scoreboard = $derived(rankScores(gameStore.current?.participants ?? []));
 
 	$effect(() => {
 		const score = myParticipant?.score ?? 0;
@@ -69,11 +67,18 @@
 		prevBuzzOrder = buzzOrder;
 	});
 
-	// Fire confetti when game ends (for the winner)
+	// All players tied for first receive the winner celebration.
 	$effect(() => {
-		if (gameStore.current?.status === 'ended' && !endConfettiFired) {
+		const game = gameStore.current;
+		if (
+			game &&
+			game.gameId === gameId &&
+			game.status === 'ended' &&
+			participantId &&
+			!endConfettiFired
+		) {
 			endConfettiFired = true;
-			if (finalScores.length > 0 && finalScores[0].participantId === participantId) {
+			if (finalScores.some((p) => p.participantId === participantId && p.rank === 1)) {
 				// Winner gets big confetti
 				fireConfetti?.({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
 				setTimeout(() => fireConfetti?.({ particleCount: 100, spread: 80, origin: { y: 0.4 } }), 500);
@@ -197,48 +202,7 @@
 				<h1 class="results-title">🎉 Game Over!</h1>
 				<p class="results-subtitle">{game.gameName}</p>
 
-				<!-- Podium -->
-				{#if finalScores.length > 0}
-					<div class="podium">
-						{#if finalScores[1]}
-							<div class="podium-place second animate-in">
-								<div class="podium-medal">{medals[1]}</div>
-								<div class="podium-name">{finalScores[1].name}</div>
-								<div class="podium-score">{finalScores[1].score} pts</div>
-								<div class="podium-block second-block">2</div>
-							</div>
-						{/if}
-						{#if finalScores[0]}
-							<div class="podium-place first animate-in">
-								<div class="podium-medal">{medals[0]}</div>
-								<div class="podium-name">{finalScores[0].name}</div>
-								<div class="podium-score">{finalScores[0].score} pts</div>
-								<div class="podium-block first-block">1</div>
-							</div>
-						{/if}
-						{#if finalScores[2]}
-							<div class="podium-place third animate-in">
-								<div class="podium-medal">{medals[2]}</div>
-								<div class="podium-name">{finalScores[2].name}</div>
-								<div class="podium-score">{finalScores[2].score} pts</div>
-								<div class="podium-block third-block">3</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				<!-- Full leaderboard -->
-				{#if finalScores.length > 3}
-					<div class="results-leaderboard">
-						{#each finalScores.slice(3) as p, i (p.participantId)}
-							<div class="results-row">
-								<span class="results-rank">{i + 4}th</span>
-								<span class="results-name">{p.name}</span>
-								<span class="results-score">{p.score} pts</span>
-							</div>
-						{/each}
-					</div>
-				{/if}
+				<FinalStandings scores={finalScores} />
 
 				<a href="/" class="btn btn-primary" style="margin-top:24px; text-decoration:none; max-width:300px; width:100%;">
 					← Back to Home
@@ -353,8 +317,8 @@
 		{#if game.participants.length > 1}
 			<div style="width:100%; max-width:480px; padding-bottom:8px;">
 				<div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
-					{#each [...game.participants].sort((a,b) => b.score - a.score) as p, i (p.participantId)}
-						{@const medal = medals[i]}
+					{#each scoreboard as p (p.participantId)}
+						{@const medal = medals[p.rank - 1]}
 						<div style="
 							flex-shrink:0;
 							background:var(--surface);
@@ -365,7 +329,7 @@
 							min-width:80px;
 						">
 							<div style="font-size:0.75rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:70px;">
-								{medal ?? `${i+1}th`}&nbsp;{p.name}
+								{medal ?? formatRank(p.rank)}&nbsp;{p.name}
 							</div>
 							<div style="font-weight:700; font-size:1.1rem; color:{p.score > 0 ? 'var(--success)' : 'var(--text-muted)'};">{p.score}</div>
 						</div>
@@ -508,109 +472,4 @@
 		margin: 0 0 8px;
 	}
 
-	.podium {
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		gap: 8px;
-		width: 100%;
-		margin: 16px 0;
-	}
-
-	.podium-place {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		flex: 1;
-		max-width: 140px;
-	}
-
-	.podium-medal {
-		font-size: 2.5rem;
-		line-height: 1;
-	}
-
-	.first .podium-medal {
-		font-size: 3rem;
-		filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.5));
-	}
-
-	.podium-name {
-		font-weight: 700;
-		font-size: 0.95rem;
-		text-align: center;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: 100%;
-	}
-
-	.podium-score {
-		font-size: 0.85rem;
-		color: var(--success);
-		font-weight: 600;
-	}
-
-	.podium-block {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-weight: 800;
-		font-size: 1.4rem;
-		color: rgba(255, 255, 255, 0.5);
-		border-radius: 8px 8px 0 0;
-	}
-
-	.first-block {
-		height: 120px;
-		background: linear-gradient(180deg, #a855f7, #7c3aed);
-	}
-
-	.second-block {
-		height: 85px;
-		background: linear-gradient(180deg, #64748b, #475569);
-	}
-
-	.third-block {
-		height: 60px;
-		background: linear-gradient(180deg, #78716c, #57534e);
-	}
-
-	.results-leaderboard {
-		width: 100%;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		overflow: hidden;
-	}
-
-	.results-row {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 16px;
-		border-bottom: 1px solid var(--border);
-	}
-
-	.results-row:last-child {
-		border-bottom: none;
-	}
-
-	.results-rank {
-		font-weight: 600;
-		color: var(--text-muted);
-		min-width: 2.5rem;
-	}
-
-	.results-name {
-		flex: 1;
-		font-weight: 600;
-	}
-
-	.results-score {
-		font-weight: 700;
-		color: var(--success);
-	}
 </style>
